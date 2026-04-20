@@ -7,6 +7,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from .database import Base, engine, SessionLocal
 from .config import AGENT_TOKEN
@@ -257,3 +259,100 @@ def logout():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie("session_user")
     return response
+
+@app.get("/export/xlsx")
+def export_xlsx(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+    session_user = request.cookies.get("session_user")
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    query = db.query(models.Asset)
+
+    if q:
+        termo = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.Asset.hostname.ilike(termo),
+                models.Asset.usuario.ilike(termo),
+                models.Asset.serial.ilike(termo),
+                models.Asset.fabricante.ilike(termo),
+                models.Asset.modelo.ilike(termo),
+                models.Asset.ip.ilike(termo)
+            )
+        )
+
+    assets = query.order_by(models.Asset.hostname.asc()).all()
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Inventario"
+
+    headers = [
+        "Hostname",
+        "Usuario",
+        "Serial",
+        "Fabricante",
+        "Modelo",
+        "CPU",
+        "RAM",
+        "Sistema",
+        "Versao Windows",
+        "Arquitetura",
+        "IP",
+        "MAC Address",
+        "Placa-mae",
+        "BIOS",
+        "Disco Total GB",
+        "Disco Livre GB",
+        "Ultimo Boot",
+        "Ultima Comunicacao"
+    ]
+
+    sheet.append(headers)
+
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for asset in assets:
+        sheet.append([
+            asset.hostname,
+            asset.usuario,
+            asset.serial,
+            asset.fabricante,
+            asset.modelo,
+            asset.cpu,
+            asset.ram,
+            asset.sistema,
+            asset.versao_windows,
+            asset.arquitetura,
+            asset.ip,
+            asset.mac_address,
+            asset.motherboard,
+            asset.bios_version,
+            asset.disco_total_gb,
+            asset.disco_livre_gb,
+            asset.ultimo_boot,
+            asset.ultima_comunicacao
+        ])
+
+    for column_cells in sheet.columns:
+        max_length = 0
+        column_letter = column_cells[0].column_letter
+
+        for cell in column_cells:
+            value = str(cell.value) if cell.value is not None else ""
+            if len(value) > max_length:
+                max_length = len(value)
+
+        sheet.column_dimensions[column_letter].width = min(max_length + 2, 40)
+
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=inventario.xlsx"}
+    )
