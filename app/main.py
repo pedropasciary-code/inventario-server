@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, SessionLocal
+from .config import AGENT_TOKEN
 from . import models, schemas
 
 app = FastAPI(title="Inventário Server")
@@ -19,12 +20,17 @@ def get_db():
         db.close()
 
 
+def validate_agent_token(x_agent_token: str = Header(default=None)):
+    if x_agent_token != AGENT_TOKEN:
+        raise HTTPException(status_code=401, detail="Token do agent inválido")
+
+
 @app.get("/")
 def home():
     return {"status": "ok"}
 
 
-@app.post("/checkin", response_model=schemas.AssetResponse)
+@app.post("/checkin", response_model=schemas.AssetResponse, dependencies=[Depends(validate_agent_token)])
 def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     existing_asset = None
 

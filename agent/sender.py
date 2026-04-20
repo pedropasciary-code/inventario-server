@@ -17,7 +17,12 @@ def send_data(payload):
     config = load_config()
     api_url = config["api_url"]
     timeout = config.get("timeout", 10)
+    agent_token = config["agent_token"]
 
-    response = requests.post(api_url, json=payload, timeout=timeout)
+    headers = {
+        "X-Agent-Token": agent_token
+    }
+
+    response = requests.post(api_url, json=payload, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response.json()
