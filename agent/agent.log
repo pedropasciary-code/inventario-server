@@ -1,0 +1,2 @@
+[2026-04-20 14:23:10] Dados coletados: {'hostname': 'VOID-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.135', 'serial': 'NHQQDAL007447033749Z00'}
+[2026-04-20 14:23:10] Envio realizado com sucesso: {'hostname': 'VOID-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.135', 'serial': 'NHQQDAL007447033749Z00', 'id': 2, 'ultima_comunicacao': '2026-04-20T17:23:10.986954'}

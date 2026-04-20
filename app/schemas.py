@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 
+
 class AssetBase(BaseModel):
     hostname: str | None = None
     usuario: str | None = None
@@ -10,8 +11,10 @@ class AssetBase(BaseModel):
     ip: str | None = None
     serial: str | None = None
 
+
 class AssetCreate(AssetBase):
     pass
+
 
 class AssetResponse(AssetBase):
     id: int
