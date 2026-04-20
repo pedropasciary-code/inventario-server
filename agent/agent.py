@@ -1,11 +1,13 @@
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
+import sys
+
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.append(str(BASE_DIR))
 
 from collector import get_system_info
 from sender import send_data
 
-
-BASE_DIR = Path(__file__).resolve().parent
 LOG_FILE = BASE_DIR / "agent.log"
 
 

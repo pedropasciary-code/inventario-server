@@ -11,6 +11,18 @@ class AssetBase(BaseModel):
     ip: str | None = None
     serial: str | None = None
 
+    fabricante: str | None = None
+    modelo: str | None = None
+    motherboard: str | None = None
+    bios_version: str | None = None
+    arquitetura: str | None = None
+    versao_windows: str | None = None
+    mac_address: str | None = None
+    disco_total_gb: str | None = None
+    disco_livre_gb: str | None = None
+
+    ultimo_boot: datetime | None = None
+
 
 class AssetCreate(AssetBase):
     pass

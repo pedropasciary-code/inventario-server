@@ -38,6 +38,19 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         existing_asset.ram = asset.ram
         existing_asset.sistema = asset.sistema
         existing_asset.ip = asset.ip
+        existing_asset.serial = asset.serial
+
+        existing_asset.fabricante = asset.fabricante
+        existing_asset.modelo = asset.modelo
+        existing_asset.motherboard = asset.motherboard
+        existing_asset.bios_version = asset.bios_version
+        existing_asset.arquitetura = asset.arquitetura
+        existing_asset.versao_windows = asset.versao_windows
+        existing_asset.mac_address = asset.mac_address
+        existing_asset.disco_total_gb = asset.disco_total_gb
+        existing_asset.disco_livre_gb = asset.disco_livre_gb
+        existing_asset.ultimo_boot = asset.ultimo_boot
+
         existing_asset.ultima_comunicacao = datetime.utcnow()
 
         db.commit()
@@ -52,6 +65,16 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         sistema=asset.sistema,
         ip=asset.ip,
         serial=asset.serial,
+        fabricante=asset.fabricante,
+        modelo=asset.modelo,
+        motherboard=asset.motherboard,
+        bios_version=asset.bios_version,
+        arquitetura=asset.arquitetura,
+        versao_windows=asset.versao_windows,
+        mac_address=asset.mac_address,
+        disco_total_gb=asset.disco_total_gb,
+        disco_livre_gb=asset.disco_livre_gb,
+        ultimo_boot=asset.ultimo_boot,
         ultima_comunicacao=datetime.utcnow()
     )
 
