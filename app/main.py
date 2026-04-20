@@ -1,13 +1,20 @@
 from datetime import datetime
+import csv
+import io
 
-from fastapi import FastAPI, Depends, Header, HTTPException
+from fastapi import FastAPI, Depends, Header, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
 from .database import Base, engine, SessionLocal
 from .config import AGENT_TOKEN
+from .auth import verify_password
 from . import models, schemas
 
 app = FastAPI(title="Inventário Server")
+templates = Jinja2Templates(directory="app/templates")
 
 Base.metadata.create_all(bind=engine)
 
@@ -30,6 +37,71 @@ def home():
     return {"status": "ok"}
 
 
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"error": None}
+    )
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user = db.query(models.User).filter(models.User.username == username).first()
+
+    if not user or not user.is_active or not verify_password(password, user.password_hash):
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"error": "Usuário ou senha inválidos"},
+            status_code=401
+        )
+
+    response = RedirectResponse(url="/dashboard", status_code=303)
+    response.set_cookie(key="session_user", value=user.username, httponly=True)
+    return response
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+    session_user = request.cookies.get("session_user")
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    query = db.query(models.Asset)
+
+    if q:
+        termo = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.Asset.hostname.ilike(termo),
+                models.Asset.usuario.ilike(termo),
+                models.Asset.serial.ilike(termo),
+                models.Asset.fabricante.ilike(termo),
+                models.Asset.modelo.ilike(termo),
+                models.Asset.ip.ilike(termo)
+            )
+        )
+
+    assets = query.order_by(models.Asset.hostname.asc()).all()
+
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "session_user": session_user,
+            "assets": assets,
+            "q": q
+        }
+    )
+
 @app.post("/checkin", response_model=schemas.AssetResponse, dependencies=[Depends(validate_agent_token)])
 def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     existing_asset = None
@@ -45,7 +117,6 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         existing_asset.sistema = asset.sistema
         existing_asset.ip = asset.ip
         existing_asset.serial = asset.serial
-
         existing_asset.fabricante = asset.fabricante
         existing_asset.modelo = asset.modelo
         existing_asset.motherboard = asset.motherboard
@@ -56,7 +127,6 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         existing_asset.disco_total_gb = asset.disco_total_gb
         existing_asset.disco_livre_gb = asset.disco_livre_gb
         existing_asset.ultimo_boot = asset.ultimo_boot
-
         existing_asset.ultima_comunicacao = datetime.utcnow()
 
         db.commit()
@@ -89,3 +159,101 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     db.refresh(new_asset)
 
     return new_asset
+
+@app.get("/export/csv")
+def export_csv(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+    session_user = request.cookies.get("session_user")
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    query = db.query(models.Asset)
+
+    if q:
+        termo = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.Asset.hostname.ilike(termo),
+                models.Asset.usuario.ilike(termo),
+                models.Asset.serial.ilike(termo),
+                models.Asset.fabricante.ilike(termo),
+                models.Asset.modelo.ilike(termo),
+                models.Asset.ip.ilike(termo)
+            )
+        )
+
+    assets = query.order_by(models.Asset.hostname.asc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow([
+        "Hostname",
+        "Usuario",
+        "Serial",
+        "Fabricante",
+        "Modelo",
+        "CPU",
+        "RAM",
+        "Sistema",
+        "Versao Windows",
+        "IP",
+        "MAC Address",
+        "Disco Total GB",
+        "Disco Livre GB",
+        "Ultimo Boot",
+        "Ultima Comunicacao"
+    ])
+
+    for asset in assets:
+        writer.writerow([
+            asset.hostname,
+            asset.usuario,
+            asset.serial,
+            asset.fabricante,
+            asset.modelo,
+            asset.cpu,
+            asset.ram,
+            asset.sistema,
+            asset.versao_windows,
+            asset.ip,
+            asset.mac_address,
+            asset.disco_total_gb,
+            asset.disco_livre_gb,
+            asset.ultimo_boot,
+            asset.ultima_comunicacao
+        ])
+
+    output.seek(0)
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=inventario.csv"}
+    )
+
+@app.get("/assets/{asset_id}", response_class=HTMLResponse)
+def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db)):
+    session_user = request.cookies.get("session_user")
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    asset = db.query(models.Asset).filter(models.Asset.id == asset_id).first()
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Ativo não encontrado")
+
+    return templates.TemplateResponse(
+        request,
+        "asset_detail.html",
+        {
+            "asset": asset
+        }
+    )
+
+@app.post("/logout")
+def logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("session_user")
+    return response

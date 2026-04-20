@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Inventário</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        a.button, button.button {
+            text-decoration: none;
+            padding: 10px 14px;
+            background: #222;
+            color: white;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        form.search-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            min-width: 280px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f3f3f3;
+        }
+
+        tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        .empty {
+            margin-top: 20px;
+            padding: 16px;
+            background: #f7f7f7;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>
+            <h1>Dashboard de Inventário</h1>
+            <p>Usuário logado: {{ session_user }}</p>
+        </div>
+
+        <div class="actions">
+            <a class="button" href="/export/csv{% if q %}?q={{ q }}{% endif %}">Exportar CSV</a>
+
+            <form method="post" action="/logout" style="display:inline;">
+                <button class="button" type="submit">Sair</button>
+            </form>
+        </div>
+    </div>
+
+    <form class="search-form" method="get" action="/dashboard">
+        <input
+            type="text"
+            name="q"
+            placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
+            value="{{ q or '' }}"
+        >
+        <button class="button" type="submit">Buscar</button>
+        <a class="button" href="/dashboard">Limpar</a>
+    </form>
+
+    {% if assets %}
+    <table>
+        <thead>
+            <tr>
+                <th>Hostname</th>
+                <th>Usuário</th>
+                <th>Serial</th>
+                <th>Fabricante</th>
+                <th>Modelo</th>
+                <th>CPU</th>
+                <th>RAM</th>
+                <th>IP</th>
+                <th>Última comunicação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset in assets %}
+            <tr>
+                <td>
+                    <a href="/assets/{{ asset.id }}">
+                        {{ asset.hostname or "Sem hostname" }}
+                    </a>
+                </td>
+                <td>{{ asset.usuario or "" }}</td>
+                <td>{{ asset.serial or "" }}</td>
+                <td>{{ asset.fabricante or "" }}</td>
+                <td>{{ asset.modelo or "" }}</td>
+                <td>{{ asset.cpu or "" }}</td>
+                <td>{{ asset.ram or "" }}</td>
+                <td>{{ asset.ip or "" }}</td>
+                <td>{{ asset.ultima_comunicacao or "" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+        Nenhum ativo encontrado.
+    </div>
+    {% endif %}
+</body>
+</html>

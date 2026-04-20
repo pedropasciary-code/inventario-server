@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalhe do Ativo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 24px;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        a.button {
+            text-decoration: none;
+            padding: 10px 14px;
+            background: #222;
+            color: white;
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            max-width: 900px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            width: 260px;
+            background: #f3f3f3;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <div>
+            <h1>Detalhe do Ativo</h1>
+            <p>{{ asset.hostname or "Sem hostname" }}</p>
+        </div>
+
+        <a class="button" href="/dashboard">Voltar</a>
+    </div>
+
+    <table>
+        <tbody>
+            <tr><th>ID</th><td>{{ asset.id }}</td></tr>
+            <tr><th>Hostname</th><td>{{ asset.hostname or "" }}</td></tr>
+            <tr><th>Usuário</th><td>{{ asset.usuario or "" }}</td></tr>
+            <tr><th>Serial</th><td>{{ asset.serial or "" }}</td></tr>
+            <tr><th>Fabricante</th><td>{{ asset.fabricante or "" }}</td></tr>
+            <tr><th>Modelo</th><td>{{ asset.modelo or "" }}</td></tr>
+            <tr><th>CPU</th><td>{{ asset.cpu or "" }}</td></tr>
+            <tr><th>RAM</th><td>{{ asset.ram or "" }}</td></tr>
+            <tr><th>Sistema</th><td>{{ asset.sistema or "" }}</td></tr>
+            <tr><th>Versão Windows</th><td>{{ asset.versao_windows or "" }}</td></tr>
+            <tr><th>Arquitetura</th><td>{{ asset.arquitetura or "" }}</td></tr>
+            <tr><th>IP</th><td>{{ asset.ip or "" }}</td></tr>
+            <tr><th>MAC Address</th><td>{{ asset.mac_address or "" }}</td></tr>
+            <tr><th>Placa-mãe</th><td>{{ asset.motherboard or "" }}</td></tr>
+            <tr><th>BIOS</th><td>{{ asset.bios_version or "" }}</td></tr>
+            <tr><th>Disco Total</th><td>{{ asset.disco_total_gb or "" }}</td></tr>
+            <tr><th>Disco Livre</th><td>{{ asset.disco_livre_gb or "" }}</td></tr>
+            <tr><th>Último Boot</th><td>{{ asset.ultimo_boot or "" }}</td></tr>
+            <tr><th>Última Comunicação</th><td>{{ asset.ultima_comunicacao or "" }}</td></tr>
+        </tbody>
+    </table>
+</body>
+</html>
