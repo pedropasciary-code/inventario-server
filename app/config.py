@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 
+# Carrega as credenciais e chaves de configuração usadas pela aplicação.
 load_dotenv()
 
 AGENT_TOKEN = os.getenv("AGENT_TOKEN")

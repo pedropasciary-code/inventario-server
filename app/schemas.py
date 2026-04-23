@@ -3,6 +3,7 @@ from datetime import datetime
 
 
 class AssetBase(BaseModel):
+    # Define os campos compartilhados entre entrada e saída da API de ativos.
     hostname: str | None = None
     usuario: str | None = None
     cpu: str | None = None
@@ -25,12 +26,15 @@ class AssetBase(BaseModel):
 
 
 class AssetCreate(AssetBase):
+    # Schema recebido no check-in enviado pelo agent.
     pass
 
 
 class AssetResponse(AssetBase):
+    # Schema devolvido pela API após criar ou atualizar um ativo.
     id: int
     ultima_comunicacao: datetime
 
     class Config:
+        # Permite converter diretamente objetos ORM do SQLAlchemy em resposta Pydantic.
         from_attributes = True

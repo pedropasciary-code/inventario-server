@@ -8,6 +8,7 @@ import wmi
 
 def get_ip():
     try:
+        # Resolve o IP principal a partir do hostname da máquina.
         hostname = socket.gethostname()
         return socket.gethostbyname(hostname)
     except Exception:
@@ -16,6 +17,7 @@ def get_ip():
 
 def get_mac_address():
     try:
+        # Procura o primeiro MAC address disponível entre as interfaces de rede.
         interfaces = psutil.net_if_addrs()
         for interface_name, addresses in interfaces.items():
             for address in addresses:
@@ -28,6 +30,7 @@ def get_mac_address():
 
 def get_total_ram_gb():
     try:
+        # Converte a memória total de bytes para gigabytes com duas casas decimais.
         total_bytes = psutil.virtual_memory().total
         return round(total_bytes / (1024 ** 3), 2)
     except Exception:
@@ -36,6 +39,7 @@ def get_total_ram_gb():
 
 def get_disk_info():
     try:
+        # Lê o uso da unidade C: para reportar espaço total e livre no inventário.
         disk = psutil.disk_usage("C:\\")
         total_gb = round(disk.total / (1024 ** 3), 2)
         free_gb = round(disk.free / (1024 ** 3), 2)
@@ -46,6 +50,7 @@ def get_disk_info():
 
 def get_last_boot():
     try:
+        # Retorna a data do último boot em ISO para facilitar o parse na API.
         boot_time = datetime.fromtimestamp(psutil.boot_time())
         return boot_time.isoformat()
     except Exception:
@@ -53,6 +58,7 @@ def get_last_boot():
 
 
 def get_system_info():
+    # Inicializa a interface WMI para consultar detalhes mais profundos do Windows.
     c = wmi.WMI()
 
     serial = None
@@ -64,6 +70,7 @@ def get_system_info():
     versao_windows = None
 
     try:
+        # BIOS fornece serial da máquina e versão do firmware.
         bios = c.Win32_BIOS()[0]
         serial = bios.SerialNumber.strip()
         bios_version = bios.SMBIOSBIOSVersion.strip()
@@ -71,12 +78,14 @@ def get_system_info():
         pass
 
     try:
+        # Recupera o nome comercial do processador instalado.
         processor = c.Win32_Processor()[0]
         cpu = processor.Name.strip()
     except Exception:
         pass
 
     try:
+        # Obtém fabricante e modelo reportados pelo sistema.
         system = c.Win32_ComputerSystem()[0]
         fabricante = system.Manufacturer.strip()
         modelo = system.Model.strip()
@@ -84,19 +93,23 @@ def get_system_info():
         pass
 
     try:
+        # Identifica a placa-mãe combinando fabricante e produto.
         board = c.Win32_BaseBoard()[0]
         motherboard = f"{board.Manufacturer.strip()} {board.Product.strip()}"
     except Exception:
         pass
 
     try:
+        # Monta uma descrição amigável da versão do Windows instalada.
         os_info = c.Win32_OperatingSystem()[0]
         versao_windows = f"{os_info.Caption.strip()} {os_info.Version.strip()}"
     except Exception:
         pass
 
+    # Completa a coleta com métricas gerais vindas do psutil.
     disco_total_gb, disco_livre_gb = get_disk_info()
 
+    # Consolida todos os campos em um payload compatível com o schema da API.
     return {
         "hostname": socket.gethostname(),
         "usuario": psutil.users()[0].name if psutil.users() else None,

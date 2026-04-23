@@ -4,6 +4,7 @@ from .database import Base
 
 
 class Asset(Base):
+    # Representa um equipamento inventariado e os metadados coletados pelo agent.
     __tablename__ = "assets"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -30,6 +31,7 @@ class Asset(Base):
 
 
 class User(Base):
+    # Armazena os usuários autorizados a acessar o painel web do inventário.
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
