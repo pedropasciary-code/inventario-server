@@ -1,49 +1,41 @@
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$sourceAgentDir = Join-Path $projectRoot "agent"
+$sourceDistDir = Join-Path $projectRoot "dist"
+$sourceConfigFile = Join-Path $projectRoot "agent\config.json"
+
 $targetDir = "C:\RDPSystemAgent"
 $taskName = "RDP System Agent"
-$pythonPath = "C:\Users\void-pedro\AppData\Local\Python\pythoncore-3.14-64\python.exe"
-$agentScript = Join-Path $targetDir "agent.py"
+
+$exeSource = Join-Path $sourceDistDir "rdp-agent.exe"
+$exeTarget = Join-Path $targetDir "rdp-agent.exe"
+$configTarget = Join-Path $targetDir "config.json"
 
 Write-Host "Iniciando instalacao do RDP System Agent..." -ForegroundColor Cyan
 
-if (-not (Test-Path $pythonPath)) {
-    throw "Python do ambiente virtual nao encontrado em: $pythonPath"
+if (-not (Test-Path $exeSource)) {
+    throw "Executavel nao encontrado em: $exeSource"
 }
 
-if (-not (Test-Path $sourceAgentDir)) {
-    throw "Pasta do agent nao encontrada em: $sourceAgentDir"
+if (-not (Test-Path $sourceConfigFile)) {
+    throw "Arquivo config.json nao encontrado em: $sourceConfigFile"
 }
 
 # Cria pasta de destino
 if (-not (Test-Path $targetDir)) {
     New-Item -ItemType Directory -Path $targetDir | Out-Null
     Write-Host "Pasta criada: $targetDir"
-} else {
+}
+else {
     Write-Host "Pasta ja existe: $targetDir"
 }
 
-# Copia arquivos do agent
-$filesToCopy = @(
-    "agent.py",
-    "collector.py",
-    "sender.py",
-    "config.json"
-)
+# Copia arquivos principais
+Copy-Item -Path $exeSource -Destination $exeTarget -Force
+Write-Host "Executavel copiado: $exeTarget"
 
-foreach ($file in $filesToCopy) {
-    $sourceFile = Join-Path $sourceAgentDir $file
-    $targetFile = Join-Path $targetDir $file
-
-    if (-not (Test-Path $sourceFile)) {
-        throw "Arquivo nao encontrado: $sourceFile"
-    }
-
-    Copy-Item -Path $sourceFile -Destination $targetFile -Force
-    Write-Host "Arquivo copiado: $file"
-}
+Copy-Item -Path $sourceConfigFile -Destination $configTarget -Force
+Write-Host "Config copiada: $configTarget"
 
 # Garante pasta de payloads falhos
 $failedPayloadsDir = Join-Path $targetDir "failed_payloads"
@@ -61,8 +53,7 @@ if ($existingTask) {
 
 # Cria nova tarefa no logon
 $action = New-ScheduledTaskAction `
-    -Execute $pythonPath `
-    -Argument $agentScript `
+    -Execute $exeTarget `
     -WorkingDirectory $targetDir
 
 $trigger = New-ScheduledTaskTrigger -AtLogOn
@@ -95,7 +86,3 @@ catch {
     Write-Host "Falha ao criar a tarefa agendada: $($_.Exception.Message)" -ForegroundColor Red
     throw
 }
-
-Write-Host "Tarefa criada com sucesso: $taskName" -ForegroundColor Green
-Write-Host "Instalacao concluida com sucesso." -ForegroundColor Green
-Write-Host "Agent instalado em: $targetDir"
