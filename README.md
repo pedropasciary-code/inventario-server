@@ -1,47 +1,63 @@
 # inventario-server
 
-Sistema de inventario de ativos com dois componentes:
-
-- `app/`: API central em FastAPI com login, dashboard web e exportacao de dados.
-- `agent/`: coletor em Python que roda na maquina cliente, captura informacoes do Windows e envia para a API.
+Sistema de inventario de ativos com API central, painel web e agent Windows.
 
 ## Visao Geral
 
-O fluxo do projeto funciona assim:
+O projeto possui dois componentes principais:
 
-1. O `agent` coleta dados da maquina local, como hostname, usuario, CPU, RAM, IP, serial, BIOS, disco e ultimo boot.
-2. Esses dados sao enviados via `POST /checkin` para a API central.
-3. A API valida o token do agent e cria ou atualiza o ativo no banco.
-4. O painel web permite buscar ativos, visualizar detalhes e exportar o inventario em CSV ou Excel.
+- `app/`: API em FastAPI com login, dashboard, detalhes de ativos e exportacao de dados.
+- `agent/`: coletor Windows em Python que captura informacoes da maquina e envia para a API.
+
+Fluxo de funcionamento:
+
+1. O `agent` coleta dados locais como hostname, usuario, CPU, RAM, IP, serial, BIOS, disco e ultimo boot.
+2. Os dados sao enviados via `POST /checkin` para a API central.
+3. A API valida o header `X-Agent-Token` usando o valor de `AGENT_TOKEN`.
+4. O ativo e criado ou atualizado no banco, usando o serial como chave de identificacao quando disponivel.
+5. O painel web permite buscar, abrir detalhes e exportar o inventario em CSV ou XLSX.
 
 ## Recursos
 
 - Cadastro e atualizacao automatica de ativos por serial.
-- Painel web com autenticacao por usuario e senha.
+- Painel web com login por usuario e senha.
 - Busca por hostname, usuario, serial, fabricante, modelo e IP.
-- Exportacao dos dados em `CSV` e `XLSX`.
-- Pagina de detalhes de cada ativo.
-- Agent com log local de execucao.
+- Exportacao em `CSV` e `XLSX`.
+- Pagina de detalhes para cada ativo.
+- Agent com log rotativo local.
+- Retry automatico de envio HTTP.
+- Salvamento de payloads falhos em `failed_payloads` para reenvio posterior.
+- Instalador Windows com tarefa agendada no logon.
 
 ## Estrutura Do Projeto
 
 ```text
 inventario-server/
 ├── app/
+│   ├── static/
+│   ├── templates/
 │   ├── auth.py
 │   ├── config.py
 │   ├── database.py
 │   ├── main.py
 │   ├── models.py
-│   ├── schemas.py
-│   └── templates/
+│   └── schemas.py
 ├── agent/
 │   ├── agent.py
 │   ├── collector.py
 │   ├── sender.py
-│   ├── config.json
-│   └── agent.log
+│   └── config.example.json
+├── agent-deploy/
+│   ├── README.txt
+│   ├── config.example.json
+│   ├── install_agent.bat
+│   ├── install_agent.ps1
+│   └── rdp-agent.exe
+├── dist/
+│   └── rdp-agent.exe
 ├── create_user.py
+├── install_agent.ps1
+├── rdp-agent.spec
 ├── requirements.txt
 └── README.md
 ```
@@ -56,18 +72,26 @@ inventario-server/
 - Requests
 - Psutil
 - WMI
+- PyInstaller
 
 ## Requisitos
 
-Antes de iniciar, voce precisa de:
+- Python 3 instalado.
+- Banco de dados acessivel pela `DATABASE_URL`.
+- Ambiente Windows para executar o `agent`, porque a coleta usa `wmi`.
+- Permissao administrativa no Windows para instalar a tarefa agendada do agent.
 
-- Python 3 instalado
-- Banco de dados acessivel pela `DATABASE_URL`
-- Ambiente Windows para executar o `agent`, porque a coleta usa `wmi`
+## Instalacao Da API
 
-## Instalacao
+No Windows PowerShell:
 
-Crie um ambiente virtual e instale as dependencias:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Em Linux/macOS:
 
 ```bash
 python3 -m venv .venv
@@ -75,19 +99,15 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Se voce estiver configurando o agent em Windows, ajuste os comandos conforme o shell usado.
-
 ## Variaveis De Ambiente
 
-Crie um arquivo `.env` na raiz do projeto com:
+Crie um arquivo `.env` na raiz do projeto:
 
 ```env
 DATABASE_URL=postgresql://usuario:senha@localhost:5432/inventario
 AGENT_TOKEN=seu_token_do_agent
 SECRET_KEY=sua_chave_secreta
 ```
-
-### Significado Das Variaveis
 
 - `DATABASE_URL`: conexao usada pela API para acessar o banco.
 - `AGENT_TOKEN`: token esperado no header `X-Agent-Token` do endpoint `/checkin`.
@@ -101,17 +121,20 @@ Com o ambiente ativo e o `.env` configurado:
 uvicorn app.main:app --reload
 ```
 
-A aplicacao ficara disponivel em:
+URLs principais:
 
-- `http://127.0.0.1:8000`
-- tela de login: `http://127.0.0.1:8000/login`
+- API: `http://127.0.0.1:8000`
+- Login: `http://127.0.0.1:8000/login`
+- Dashboard: `http://127.0.0.1:8000/dashboard`
+
+As tabelas sao criadas automaticamente na inicializacao da API com `Base.metadata.create_all(...)`.
 
 ## Criando O Usuario Inicial
 
-O script `create_user.py` cria um usuario administrativo padrao, caso ele ainda nao exista:
+O script `create_user.py` cria o usuario administrativo padrao se ele ainda nao existir:
 
 ```bash
-python3 create_user.py
+python create_user.py
 ```
 
 Credenciais atuais definidas no script:
@@ -119,73 +142,109 @@ Credenciais atuais definidas no script:
 - usuario: `admin`
 - senha: `admin123`
 
-Se quiser, altere esses valores no arquivo [create_user.py](/home/void-pedro/Documents/projetos/inventario-server/create_user.py) antes de executar.
+Altere esses valores em `create_user.py` antes de executar em um ambiente real.
 
 ## Configurando O Agent
 
-O agent usa o arquivo [agent/config.json](/home/void-pedro/Documents/projetos/inventario-server/agent/config.json):
+O agent usa o arquivo `agent/config.json` em desenvolvimento ou `config.json` na pasta instalada.
+Use `agent/config.example.json` como modelo e crie uma copia local chamada `config.json`:
 
 ```json
 {
   "api_url": "http://127.0.0.1:8000/checkin",
   "timeout": 10,
-  "agent_token": "seu_token_do_agent"
+  "agent_token": "seu_token_do_agent",
+  "agent_version": "1.0.0",
+  "max_retries": 3,
+  "retry_delay_seconds": 5
 }
 ```
 
-### Campos Do `config.json`
-
 - `api_url`: endpoint de check-in da API central.
-- `timeout`: tempo maximo da requisicao HTTP.
+- `timeout`: tempo maximo da requisicao HTTP em segundos.
 - `agent_token`: token enviado no header `X-Agent-Token`.
+- `agent_version`: versao informada junto com cada check-in.
+- `max_retries`: numero maximo de tentativas de envio.
+- `retry_delay_seconds`: intervalo entre tentativas quando o envio falha.
 
-O valor de `agent_token` precisa ser o mesmo configurado em `AGENT_TOKEN` no `.env` da API.
+O valor de `agent_token` precisa ser igual ao `AGENT_TOKEN` configurado no `.env` da API.
 
-## Executando O Agent
+## Executando O Agent Em Desenvolvimento
 
 No host Windows que sera inventariado:
 
-```bash
-python agent/agent.py
+```powershell
+python agent\agent.py
 ```
 
 Durante a execucao, o agent:
 
-- coleta os dados da maquina em `agent/collector.py`
+- coleta dados em `agent/collector.py`
 - envia o payload em `agent/sender.py`
 - registra eventos em `agent/agent.log`
+- salva falhas em `agent/failed_payloads`
+- reenvia payloads pendentes na proxima execucao
+
+## Instalando O Agent No Windows
+
+O projeto possui dois instaladores:
+
+- `install_agent.ps1`: instala usando `dist/rdp-agent.exe` e `agent/config.json` a partir da raiz do projeto.
+- `agent-deploy/install_agent.bat`: instala a partir do pacote distribuivel em `agent-deploy`.
+
+Para instalar pelo pacote distribuivel:
+
+1. Edite `agent-deploy/config.json` e ajuste `api_url` para o endereco real do servidor.
+2. Confirme que `agent_token` e igual ao `AGENT_TOKEN` do servidor.
+3. Execute `agent-deploy/install_agent.bat` como administrador.
+4. O agent sera copiado para `C:\RDPSystemAgent`.
+5. A tarefa agendada `RDP System Agent` sera criada para executar no logon.
+
+Para testar apos instalar:
+
+```powershell
+C:\RDPSystemAgent\rdp-agent.exe
+```
+
+Verifique o log em:
+
+```text
+C:\RDPSystemAgent\agent.log
+```
+
+## Empacotando O Agent
+
+O arquivo `rdp-agent.spec` define o build do executavel com PyInstaller.
+
+Exemplo:
+
+```powershell
+pyinstaller rdp-agent.spec
+```
+
+O executavel gerado fica em `dist/rdp-agent.exe`.
 
 ## Endpoints Principais
 
-### Publicos
+Publicos:
 
-- `GET /`: health-check simples da API
-- `GET /login`: renderiza a tela de login
-- `POST /login`: autentica usuario no painel
+- `GET /`: health-check simples da API.
+- `GET /login`: renderiza a tela de login.
+- `POST /login`: autentica usuario no painel.
 
-### Protegidos Por Sessao
+Protegidos por sessao:
 
-- `GET /dashboard`: lista e filtra ativos
-- `GET /assets/{asset_id}`: exibe os detalhes de um ativo
-- `GET /export/csv`: exporta o inventario em CSV
-- `GET /export/xlsx`: exporta o inventario em Excel
-- `POST /logout`: encerra a sessao do usuario
+- `GET /dashboard`: lista e filtra ativos.
+- `GET /assets/{asset_id}`: exibe detalhes de um ativo.
+- `GET /export/csv`: exporta o inventario em CSV.
+- `GET /export/xlsx`: exporta o inventario em Excel.
+- `POST /logout`: encerra a sessao.
 
-### Protegido Por Token Do Agent
+Protegido por token do agent:
 
-- `POST /checkin`: recebe dados do agent e cria ou atualiza o ativo
-
-## Logica Do Check-In
-
-O endpoint `/checkin` funciona desta forma:
-
-- se o payload vier com `serial` e ele ja existir no banco, o ativo e atualizado
-- se o serial nao existir, um novo ativo e criado
-- a coluna `ultima_comunicacao` e atualizada com o horario atual do servidor
+- `POST /checkin`: recebe dados do agent e cria ou atualiza o ativo.
 
 ## Campos Coletados Pelo Agent
-
-Entre os principais campos enviados para a API estao:
 
 - hostname
 - usuario
@@ -204,27 +263,31 @@ Entre os principais campos enviados para a API estao:
 - disco_total_gb
 - disco_livre_gb
 - ultimo_boot
-
-## Observacoes Importantes
-
-- O `agent` foi implementado com foco em Windows por causa do uso de `wmi`.
-- A autenticacao do painel atualmente usa cookie com `session_user`.
-- As tabelas sao criadas automaticamente na inicializacao da API com `Base.metadata.create_all(...)`.
-- O projeto hoje esta pronto para uso interno e pode ser expandido com permissoes, logs mais robustos e agendamento do agent.
+- agent_version
 
 ## Arquivos Principais
 
-- [app/main.py](/home/void-pedro/Documents/projetos/inventario-server/app/main.py): rotas da API, login, dashboard, exportacoes e check-in
-- [app/models.py](/home/void-pedro/Documents/projetos/inventario-server/app/models.py): modelos `Asset` e `User`
-- [app/schemas.py](/home/void-pedro/Documents/projetos/inventario-server/app/schemas.py): schemas Pydantic da API
-- [app/auth.py](/home/void-pedro/Documents/projetos/inventario-server/app/auth.py): hash e validacao de senha
-- [agent/collector.py](/home/void-pedro/Documents/projetos/inventario-server/agent/collector.py): coleta dos dados da maquina
-- [agent/sender.py](/home/void-pedro/Documents/projetos/inventario-server/agent/sender.py): envio HTTP para a API
-- [agent/agent.py](/home/void-pedro/Documents/projetos/inventario-server/agent/agent.py): ponto de entrada do agent
+- `app/main.py`: rotas da API, login, dashboard, exportacoes e check-in.
+- `app/models.py`: modelos `Asset` e `User`.
+- `app/schemas.py`: schemas Pydantic da API.
+- `app/auth.py`: hash e validacao de senha.
+- `agent/collector.py`: coleta dos dados da maquina.
+- `agent/sender.py`: envio HTTP para a API.
+- `agent/agent.py`: ponto de entrada do agent, log e reenvio de payloads falhos.
+- `install_agent.ps1`: instalador local a partir da raiz do projeto.
+- `agent-deploy/install_agent.ps1`: instalador do pacote distribuivel.
+
+## Observacoes Importantes
+
+- O `agent` foi implementado para Windows.
+- A autenticacao do painel usa cookie `session_user`.
+- O script `create_user.py` ainda possui credenciais padrao e deve ser ajustado antes de uso real.
+- Nao publique tokens reais em repositorios compartilhados.
+- Arquivos `config.json`, logs, executaveis e pastas `build/`/`dist/` sao gerados/localizados por ambiente e ficam fora do Git.
 
 ## Proximos Passos Sugeridos
 
 - mover as credenciais padrao do `create_user.py` para variaveis de ambiente
 - adicionar expiracao e assinatura mais forte para a sessao web
-- criar agendamento automatico do agent no Windows
 - separar dependencias da API e do agent em arquivos distintos
+- adicionar testes automatizados para rotas principais e coleta do agent

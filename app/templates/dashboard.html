@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RDP SYSTEM - Dashboard</title>
     <style>
+        /* Normaliza o cálculo de largura dos elementos da página. */
         * {
             box-sizing: border-box;
         }
 
+        /* Define a base visual do painel após o login. */
         body {
             margin: 0;
             font-family: Arial, sans-serif;
@@ -16,10 +18,12 @@
             color: #2f505f;
         }
 
+        /* Espaçamento externo geral de todo o dashboard. */
         .layout {
             padding: 24px;
         }
 
+        /* Cabeçalho com identificação do sistema e ações principais. */
         .header {
             background: linear-gradient(135deg, #2f505f, #4c8c9c);
             color: white;
@@ -34,6 +38,7 @@
             box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
         }
 
+        /* Alinha logo e texto institucional dentro do cabeçalho. */
         .header-left {
             display: flex;
             align-items: center;
@@ -59,12 +64,14 @@
             color: #dceaea;
         }
 
+        /* Agrupa botões de exportação e logout. */
         .actions {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
 
+        /* Aparência compartilhada entre links de ação e botões. */
         a.button, button.button {
             text-decoration: none;
             padding: 10px 14px;
@@ -81,6 +88,7 @@
             background: #adc7c7;
         }
 
+        /* Grade responsiva com os indicadores do inventário filtrado. */
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -88,6 +96,7 @@
             margin-bottom: 24px;
         }
 
+        /* Cartões numéricos usados nos totais do topo. */
         .card {
             background: white;
             border-radius: 18px;
@@ -108,6 +117,7 @@
             color: #2f505f;
         }
 
+        /* Blocos brancos reutilizados para busca, tabela e estado vazio. */
         .search-box, .table-box, .empty {
             background: white;
             border-radius: 18px;
@@ -120,6 +130,7 @@
             margin-bottom: 24px;
         }
 
+        /* Formulário horizontal que envia o filtro q para /dashboard. */
         form.search-form {
             display: flex;
             gap: 12px;
@@ -142,10 +153,12 @@
             box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.12);
         }
 
+        /* Permite rolagem horizontal da tabela em telas menores. */
         .table-box {
             overflow-x: auto;
         }
 
+        /* Tabela principal de ativos retornados pelo backend. */
         table {
             width: 100%;
             border-collapse: collapse;
@@ -168,6 +181,7 @@
             background: #f8fcfc;
         }
 
+        /* Link para abrir a página de detalhes de cada ativo. */
         .hostname-link {
             text-decoration: none;
             color: #4c8c9c;
@@ -178,6 +192,7 @@
             text-decoration: underline;
         }
 
+        /* Marcador visual de status exibido em cada linha da tabela. */
         .badge {
             display: inline-block;
             padding: 6px 10px;
@@ -195,6 +210,7 @@
 </head>
 <body>
     <div class="layout">
+        <!-- Cabeçalho do painel com usuário logado e ações de exportação. -->
         <div class="header">
             <div class="header-left">
                 <img class="header-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
@@ -213,6 +229,7 @@
             </div>
         </div>
 
+        <!-- Indicadores calculados no backend com base na lista filtrada. -->
         <div class="stats">
             <div class="card">
                 <div class="card-title">Total de ativos</div>
@@ -230,6 +247,7 @@
             </div>
         </div>
 
+        <!-- Campo de busca que filtra ativos por texto em múltiplas colunas. -->
         <div class="search-box">
             <form class="search-form" method="get" action="/dashboard">
                 <input
@@ -243,6 +261,7 @@
             </form>
         </div>
 
+        <!-- Renderiza a tabela quando há ativos ou uma mensagem quando a lista vem vazia. -->
         {% if assets %}
         <div class="table-box">
             <table>
@@ -283,6 +302,7 @@
             </table>
         </div>
         {% else %}
+        <!-- Estado vazio para busca sem resultado ou banco ainda sem check-ins. -->
         <div class="empty">
             Nenhum ativo encontrado.
         </div>

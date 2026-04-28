@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RDP SYSTEM - Detalhe do Ativo</title>
     <style>
+        /* Normaliza o cálculo de largura dos elementos da página. */
         * {
             box-sizing: border-box;
         }
 
+        /* Base visual da tela de detalhes, alinhada ao dashboard. */
         body {
             margin: 0;
             font-family: Arial, sans-serif;
@@ -16,10 +18,12 @@
             color: #2f505f;
         }
 
+        /* Espaçamento externo geral da página. */
         .layout {
             padding: 24px;
         }
 
+        /* Cabeçalho com nome do sistema, ativo atual e botão de retorno. */
         .header {
             background: linear-gradient(135deg, #2f505f, #4c8c9c);
             color: white;
@@ -56,12 +60,14 @@
             background: #adc7c7;
         }
 
+        /* Grade responsiva que distribui os grupos de informações do ativo. */
         .details-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 16px;
         }
 
+        /* Cartão usado para cada categoria de dados do equipamento. */
         .card {
             background: white;
             border-radius: 18px;
@@ -77,6 +83,7 @@
             color: #2f505f;
         }
 
+        /* Linha individual de metadado: rótulo pequeno e valor em destaque. */
         .detail-item {
             margin-bottom: 12px;
         }
@@ -98,6 +105,7 @@
 </head>
 <body>
     <div class="layout">
+        <!-- Identifica o ativo aberto e oferece navegação de volta ao dashboard. -->
         <div class="header">
             <div>
                 <h1>RDP SYSTEM</h1>
@@ -107,6 +115,7 @@
             <a class="button" href="/dashboard">Voltar</a>
         </div>
 
+        <!-- Dados do ativo agrupados por assunto para facilitar leitura e suporte. -->
         <div class="details-grid">
             <div class="card">
                 <h2>Identificação</h2>

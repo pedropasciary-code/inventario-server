@@ -1,0 +1,8 @@
+{
+  "api_url": "http://127.0.0.1:8000/checkin",
+  "timeout": 10,
+  "agent_token": "substitua_pelo_mesmo_AGENT_TOKEN_do_servidor",
+  "agent_version": "1.0.0",
+  "max_retries": 3,
+  "retry_delay_seconds": 5
+}

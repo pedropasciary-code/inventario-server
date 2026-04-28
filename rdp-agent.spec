@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
+# Configuração gerada/ajustada para o PyInstaller empacotar o agent em um exe.
 a = Analysis(
+    # Arquivo de entrada que inicia a coleta e o envio do inventário.
     ['agent\\agent.py'],
     pathex=[],
     binaries=[],
@@ -14,8 +15,11 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+# Agrupa os módulos Python puros encontrados na análise.
 pyz = PYZ(a.pure)
 
+# Monta o executável final chamado rdp-agent.exe.
 exe = EXE(
     pyz,
     a.scripts,

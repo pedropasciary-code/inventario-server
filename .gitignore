@@ -1,6 +1,50 @@
+# Ambientes virtuais
 venv/
+.venv/
+env/
+ENV/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Variaveis de ambiente e segredos locais
 .env
+.env.*
+!.env.example
+
+# Configuracoes locais do agent com token/URL de ambiente
+agent/config.json
+agent-deploy/config.json
+dist/config.json
+
+# Logs e payloads gerados em runtime
+*.log
+agent/failed_payloads/
+agent-deploy/failed_payloads/
+dist/failed_payloads/
+
+# Artefatos de build e empacotamento
+build/
+dist/
+*.egg-info/
+*.manifest
+*.spec.bak
+agent-deploy/*.exe
+
+# Bancos locais de desenvolvimento
+*.db
+*.sqlite
+*.sqlite3
+
+# IDEs e sistema operacional
 .idea/
 .vscode/
+.DS_Store
+Thumbs.db
