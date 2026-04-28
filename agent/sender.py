@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import requests
@@ -9,28 +10,50 @@ CONFIG_FILE = BASE_DIR / "config.json"
 
 
 def load_config():
-    # Lê a configuração local do agent com URL da API, token e timeout.
+    if not CONFIG_FILE.exists():
+        raise FileNotFoundError(f"Arquivo de configuração não encontrado: {CONFIG_FILE}")
+
     with open(CONFIG_FILE, "r", encoding="utf-8") as file:
-        return json.load(file)
+        config = json.load(file)
+
+    required_keys = ["api_url", "agent_token"]
+
+    for key in required_keys:
+        if key not in config or not config[key]:
+            raise ValueError(f"Configuração obrigatória ausente: {key}")
+
+    return config
 
 
 def send_data(payload):
-    # Carrega os parâmetros de conexão antes de montar a requisição.
     config = load_config()
     api_url = config["api_url"]
     timeout = config.get("timeout", 10)
     agent_token = config["agent_token"]
+    max_retries = config.get("max_retries", 3)
+    retry_delay_seconds = config.get("retry_delay_seconds", 5)
 
-    # Envia o token em header para que a API valide a origem do check-in.
     headers = {
         "X-Agent-Token": agent_token
     }
 
-    # Faz o POST do inventário para o backend central usando JSON.
-    response = requests.post(api_url, json=payload, headers=headers, timeout=timeout)
+    last_error = None
 
-    # Interrompe o fluxo se a API responder com erro HTTP.
-    response.raise_for_status()
+    for attempt in range(1, max_retries + 1):
+        try:
+            response = requests.post(
+                api_url,
+                json=payload,
+                headers=headers,
+                timeout=timeout
+            )
+            response.raise_for_status()
+            return response.json()
 
-    # Retorna o corpo da resposta já convertido para dicionário.
-    return response.json()
+        except requests.RequestException as error:
+            last_error = error
+
+            if attempt < max_retries:
+                time.sleep(retry_delay_seconds)
+
+    raise last_error

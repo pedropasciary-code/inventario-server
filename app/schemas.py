@@ -21,7 +21,7 @@ class AssetBase(BaseModel):
     mac_address: str | None = None
     disco_total_gb: str | None = None
     disco_livre_gb: str | None = None
-
+    agent_version: str | None = None
     ultimo_boot: datetime | None = None
 
 

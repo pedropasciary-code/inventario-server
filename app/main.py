@@ -153,6 +153,7 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         existing_asset.disco_livre_gb = asset.disco_livre_gb
         existing_asset.ultimo_boot = asset.ultimo_boot
         existing_asset.ultima_comunicacao = datetime.utcnow()
+        existing_asset.agent_version = asset.agent_version
 
         db.commit()
         db.refresh(existing_asset)
@@ -177,7 +178,8 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         disco_total_gb=asset.disco_total_gb,
         disco_livre_gb=asset.disco_livre_gb,
         ultimo_boot=asset.ultimo_boot,
-        ultima_comunicacao=datetime.utcnow()
+        ultima_comunicacao=datetime.utcnow(),
+        agent_version=asset.agent_version
     )
 
     db.add(new_asset)

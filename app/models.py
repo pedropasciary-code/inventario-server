@@ -25,6 +25,7 @@ class Asset(Base):
     mac_address = Column(String, nullable=True)
     disco_total_gb = Column(String, nullable=True)
     disco_livre_gb = Column(String, nullable=True)
+    agent_version = Column(String, nullable=True)
 
     ultimo_boot = Column(DateTime, nullable=True)
     ultima_comunicacao = Column(DateTime, default=datetime.utcnow)
