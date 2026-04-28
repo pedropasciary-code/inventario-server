@@ -108,13 +108,20 @@ def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_
     # Ordena por hostname para manter a listagem previsível no dashboard.
     assets = query.order_by(models.Asset.hostname.asc()).all()
 
+    total_assets = len(assets)
+    assets_with_ip = len([asset for asset in assets if asset.ip])
+    assets_with_serial = len([asset for asset in assets if asset.serial])
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "session_user": session_user,
             "assets": assets,
-            "q": q
+            "q": q,
+            "total_assets": total_assets,
+            "assets_with_ip": assets_with_ip,
+            "assets_with_serial": assets_with_serial
         }
     )
 
