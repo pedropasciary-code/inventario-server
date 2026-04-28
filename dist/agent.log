@@ -1,0 +1,6 @@
+2026-04-28 19:04:19,689 | INFO | Iniciando agent versão 1.0.0
+2026-04-28 19:04:19,689 | INFO | Nenhum payload pendente para reenvio
+2026-04-28 19:04:21,423 | INFO | Dados coletados com sucesso
+2026-04-28 19:04:21,424 | INFO | Hostname: WIN-PEDRO | Serial: NHQQDAL007447033749Z00
+2026-04-28 19:04:21,443 | INFO | Envio realizado com sucesso
+2026-04-28 19:04:21,443 | INFO | Resposta da API: {'hostname': 'WIN-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.118', 'serial': 'NHQQDAL007447033749Z00', 'fabricante': 'Acer', 'modelo': 'Nitro ANV15-51', 'motherboard': 'RPL Sportage_RTH', 'bios_version': 'V1.31', 'arquitetura': 'AMD64', 'versao_windows': 'Microsoft Windows 11 Pro 10.0.26200', 'mac_address': 'C2-35-32-C3-F9-21', 'disco_total_gb': '476.0', 'disco_livre_gb': '158.11', 'agent_version': '1.0.0', 'ultimo_boot': '2026-04-27T09:01:17.544454', 'id': 1, 'ultima_comunicacao': '2026-04-28T22:04:21.437992'}
