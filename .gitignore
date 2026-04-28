@@ -46,5 +46,6 @@ agent-deploy/*.exe
 # IDEs e sistema operacional
 .idea/
 .vscode/
+.codex
 .DS_Store
 Thumbs.db
