@@ -107,11 +107,13 @@ Crie um arquivo `.env` na raiz do projeto:
 DATABASE_URL=postgresql://usuario:senha@localhost:5432/inventario
 AGENT_TOKEN=seu_token_do_agent
 SECRET_KEY=sua_chave_secreta
+SESSION_COOKIE_SECURE=false
 ```
 
 - `DATABASE_URL`: conexao usada pela API para acessar o banco.
 - `AGENT_TOKEN`: token esperado no header `X-Agent-Token` do endpoint `/checkin`.
-- `SECRET_KEY`: chave reservada para configuracoes internas da aplicacao.
+- `SECRET_KEY`: chave usada para assinar a sessao web.
+- `SESSION_COOKIE_SECURE`: use `true` quando a API estiver publicada com HTTPS.
 
 ## Executando A API
 
@@ -131,18 +133,20 @@ As tabelas sao criadas automaticamente na inicializacao da API com `Base.metadat
 
 ## Criando O Usuario Inicial
 
-O script `create_user.py` cria o usuario administrativo padrao se ele ainda nao existir:
+O script `create_user.py` cria um usuario do painel sem senha hardcoded.
+Modo interativo:
 
 ```bash
 python create_user.py
 ```
 
-Credenciais atuais definidas no script:
+Tambem e possivel informar usuario por argumento e senha por variavel de ambiente:
 
-- usuario: `admin`
-- senha: `admin123`
+```bash
+INVENTARIO_ADMIN_PASSWORD="senha-forte-aqui" python create_user.py --username admin
+```
 
-Altere esses valores em `create_user.py` antes de executar em um ambiente real.
+A senha precisa ter pelo menos 8 caracteres. O script nao imprime a senha criada.
 
 ## Configurando O Agent
 
@@ -280,14 +284,13 @@ Protegido por token do agent:
 ## Observacoes Importantes
 
 - O `agent` foi implementado para Windows.
-- A autenticacao do painel usa cookie `session_user`.
-- O script `create_user.py` ainda possui credenciais padrao e deve ser ajustado antes de uso real.
+- A autenticacao do painel usa sessao assinada com `SECRET_KEY`.
+- O script `create_user.py` cria usuario por prompt, argumento ou variaveis de ambiente.
 - Nao publique tokens reais em repositorios compartilhados.
 - Arquivos `config.json`, logs, executaveis e pastas `build/`/`dist/` sao gerados/localizados por ambiente e ficam fora do Git.
 
 ## Proximos Passos Sugeridos
 
-- mover as credenciais padrao do `create_user.py` para variaveis de ambiente
-- adicionar expiracao e assinatura mais forte para a sessao web
+- adicionar protecao CSRF e limite de tentativas no login
 - separar dependencias da API e do agent em arquivos distintos
 - adicionar testes automatizados para rotas principais e coleta do agent

@@ -10,14 +10,23 @@ from sqlalchemy import or_
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from .database import Base, engine, SessionLocal
-from .config import AGENT_TOKEN
+from .config import AGENT_TOKEN, SECRET_KEY, SESSION_COOKIE_SECURE
 from .auth import verify_password
 from . import models, schemas
 
 # Instancia a API principal e configura onde o FastAPI buscará os templates HTML.
 app = FastAPI(title="Inventário Server")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SECRET_KEY,
+    session_cookie="inventario_session",
+    max_age=8 * 60 * 60,
+    same_site="lax",
+    https_only=SESSION_COOKIE_SECURE,
+)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -37,6 +46,22 @@ def get_db():
 def validate_agent_token(x_agent_token: str = Header(default=None)):
     if x_agent_token != AGENT_TOKEN:
         raise HTTPException(status_code=401, detail="Token do agent inválido")
+
+
+def get_session_user(request: Request, db: Session) -> str | None:
+    # Lê a sessão assinada e confirma no banco se o usuário ainda existe e está ativo.
+    username = request.session.get("session_user")
+
+    if not username:
+        return None
+
+    user = db.query(models.User).filter(models.User.username == username).first()
+
+    if not user or not user.is_active:
+        request.session.clear()
+        return None
+
+    return user.username
 
 
 @app.get("/")
@@ -74,16 +99,17 @@ def login(
             status_code=401
         )
 
-    # Salva o usuário autenticado em cookie para liberar acesso ao dashboard.
+    # Salva o usuário autenticado na sessão assinada para liberar acesso ao dashboard.
+    request.session.clear()
+    request.session["session_user"] = user.username
     response = RedirectResponse(url="/dashboard", status_code=303)
-    response.set_cookie(key="session_user", value=user.username, httponly=True)
     return response
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_db)):
-    # Usa o cookie de sessão para impedir acesso ao painel sem autenticação.
-    session_user = request.cookies.get("session_user")
+    # Usa a sessão assinada para impedir acesso ao painel sem autenticação.
+    session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -191,7 +217,7 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
 @app.get("/export/csv")
 def export_csv(request: Request, q: str | None = None, db: Session = Depends(get_db)):
     # Exige sessão válida antes de liberar exportação dos dados.
-    session_user = request.cookies.get("session_user")
+    session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -269,7 +295,7 @@ def export_csv(request: Request, q: str | None = None, db: Session = Depends(get
 @app.get("/assets/{asset_id}", response_class=HTMLResponse)
 def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db)):
     # Mantém a página de detalhes protegida pela mesma sessão do dashboard.
-    session_user = request.cookies.get("session_user")
+    session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -290,16 +316,16 @@ def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db))
     )
 
 @app.post("/logout")
-def logout():
-    # Encerra a sessão removendo o cookie e redireciona para a tela de login.
+def logout(request: Request):
+    # Encerra a sessão assinada e redireciona para a tela de login.
+    request.session.clear()
     response = RedirectResponse(url="/login", status_code=303)
-    response.delete_cookie("session_user")
     return response
 
 @app.get("/export/xlsx")
 def export_xlsx(request: Request, q: str | None = None, db: Session = Depends(get_db)):
     # Exige autenticação para exportação em Excel assim como no CSV.
-    session_user = request.cookies.get("session_user")
+    session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
