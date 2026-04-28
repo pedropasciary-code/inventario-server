@@ -3,6 +3,7 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from logging.handlers import RotatingFileHandler
 
 BASE_DIR = Path(__file__).resolve().parent
 sys.path.append(str(BASE_DIR))
@@ -16,14 +17,25 @@ FAILED_PAYLOADS_DIR = BASE_DIR / "failed_payloads"
 FAILED_PAYLOADS_DIR.mkdir(exist_ok=True)
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler()
-    ]
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+
+file_handler = RotatingFileHandler(
+    LOG_FILE,
+    maxBytes=1_000_000,
+    backupCount=5,
+    encoding="utf-8"
 )
+file_handler.setFormatter(formatter)
+
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+
+logger.handlers.clear()
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 
 def save_failed_payload(payload):
@@ -33,7 +45,30 @@ def save_failed_payload(payload):
     with open(file_path, "w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)
 
-    logging.warning(f"Payload salvo para reenvio manual: {file_path}")
+    logging.warning(f"Payload salvo para reenvio posterior: {file_path}")
+
+
+def resend_failed_payloads():
+    failed_files = sorted(FAILED_PAYLOADS_DIR.glob("payload_*.json"))
+
+    if not failed_files:
+        logging.info("Nenhum payload pendente para reenvio")
+        return
+
+    logging.info(f"Encontrados {len(failed_files)} payload(s) pendente(s) para reenvio")
+
+    for file_path in failed_files:
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                payload = json.load(file)
+
+            send_data(payload)
+            file_path.unlink()
+
+            logging.info(f"Payload reenviado com sucesso e removido: {file_path.name}")
+
+        except Exception as error:
+            logging.error(f"Falha ao reenviar {file_path.name}: {error}")
 
 
 def main():
@@ -42,6 +77,8 @@ def main():
         agent_version = config.get("agent_version", "unknown")
 
         logging.info(f"Iniciando agent versão {agent_version}")
+
+        resend_failed_payloads()
 
         data = get_system_info()
         data["agent_version"] = agent_version

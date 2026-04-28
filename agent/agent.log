@@ -43,3 +43,28 @@
 2026-04-28 21:27:39,502 | INFO | Hostname: WIN-PEDRO | Serial: NHQQDAL007447033749Z00
 2026-04-28 21:27:39,542 | INFO | Envio realizado com sucesso
 2026-04-28 21:27:39,542 | INFO | Resposta da API: {'hostname': 'WIN-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.118', 'serial': 'NHQQDAL007447033749Z00', 'fabricante': 'Acer', 'modelo': 'Nitro ANV15-51', 'motherboard': 'RPL Sportage_RTH', 'bios_version': 'V1.31', 'arquitetura': 'AMD64', 'versao_windows': 'Microsoft Windows 11 Pro 10.0.26200', 'mac_address': 'C2-35-32-C3-F9-21', 'disco_total_gb': '476.0', 'disco_livre_gb': '158.46', 'agent_version': '1.0.0', 'ultimo_boot': '2026-04-27T12:01:26.994336', 'id': 1, 'ultima_comunicacao': '2026-04-29T00:27:39.535367'}
+2026-04-28 18:37:25,337 | INFO | Iniciando agent versão 1.0.0
+2026-04-28 18:37:25,337 | INFO | Nenhum payload pendente para reenvio
+2026-04-28 18:37:27,139 | INFO | Dados coletados com sucesso
+2026-04-28 18:37:27,139 | INFO | Hostname: WIN-PEDRO | Serial: NHQQDAL007447033749Z00
+2026-04-28 18:37:27,185 | INFO | Envio realizado com sucesso
+2026-04-28 18:37:27,185 | INFO | Resposta da API: {'hostname': 'WIN-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.118', 'serial': 'NHQQDAL007447033749Z00', 'fabricante': 'Acer', 'modelo': 'Nitro ANV15-51', 'motherboard': 'RPL Sportage_RTH', 'bios_version': 'V1.31', 'arquitetura': 'AMD64', 'versao_windows': 'Microsoft Windows 11 Pro 10.0.26200', 'mac_address': 'C2-35-32-C3-F9-21', 'disco_total_gb': '476.0', 'disco_livre_gb': '158.46', 'agent_version': '1.0.0', 'ultimo_boot': '2026-04-27T09:01:17.544395', 'id': 1, 'ultima_comunicacao': '2026-04-28T21:37:27.179054'}
+2026-04-28 18:37:47,229 | INFO | Iniciando agent versão 1.0.0
+2026-04-28 18:37:47,229 | INFO | Nenhum payload pendente para reenvio
+2026-04-28 18:37:48,634 | INFO | Dados coletados com sucesso
+2026-04-28 18:37:48,634 | INFO | Hostname: WIN-PEDRO | Serial: NHQQDAL007447033749Z00
+2026-04-28 18:38:04,777 | ERROR | Erro ao executar agent: HTTPConnectionPool(host='127.0.0.1', port=8000): Max retries exceeded with url: /checkin (Caused by NewConnectionError("HTTPConnection(host='127.0.0.1', port=8000): Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it"))
+2026-04-28 18:38:04,778 | WARNING | Payload salvo para reenvio posterior: C:\Projetos\inventario-server\agent\failed_payloads\payload_20260428_183804.json
+2026-04-28 18:38:22,894 | INFO | Iniciando agent versão 1.0.0
+2026-04-28 18:38:22,894 | INFO | Encontrados 1 payload(s) pendente(s) para reenvio
+2026-04-28 18:38:22,923 | INFO | Payload reenviado com sucesso e removido: payload_20260428_183804.json
+2026-04-28 18:38:24,246 | INFO | Dados coletados com sucesso
+2026-04-28 18:38:24,246 | INFO | Hostname: WIN-PEDRO | Serial: NHQQDAL007447033749Z00
+2026-04-28 18:38:24,271 | INFO | Envio realizado com sucesso
+2026-04-28 18:38:24,272 | INFO | Resposta da API: {'hostname': 'WIN-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.118', 'serial': 'NHQQDAL007447033749Z00', 'fabricante': 'Acer', 'modelo': 'Nitro ANV15-51', 'motherboard': 'RPL Sportage_RTH', 'bios_version': 'V1.31', 'arquitetura': 'AMD64', 'versao_windows': 'Microsoft Windows 11 Pro 10.0.26200', 'mac_address': 'C2-35-32-C3-F9-21', 'disco_total_gb': '476.0', 'disco_livre_gb': '158.45', 'agent_version': '1.0.0', 'ultimo_boot': '2026-04-27T09:01:17.545166', 'id': 1, 'ultima_comunicacao': '2026-04-28T21:38:24.268450'}
+2026-04-28 18:48:03,232 | INFO | Iniciando agent versão 1.0.0
+2026-04-28 18:48:03,233 | INFO | Nenhum payload pendente para reenvio
+2026-04-28 18:48:04,881 | INFO | Dados coletados com sucesso
+2026-04-28 18:48:04,881 | INFO | Hostname: WIN-PEDRO | Serial: NHQQDAL007447033749Z00
+2026-04-28 18:48:04,900 | INFO | Envio realizado com sucesso
+2026-04-28 18:48:04,901 | INFO | Resposta da API: {'hostname': 'WIN-PEDRO', 'usuario': 'void-pedro', 'cpu': '13th Gen Intel(R) Core(TM) i7-13620H', 'ram': '31.71 GB', 'sistema': 'Windows 11', 'ip': '192.168.64.118', 'serial': 'NHQQDAL007447033749Z00', 'fabricante': 'Acer', 'modelo': 'Nitro ANV15-51', 'motherboard': 'RPL Sportage_RTH', 'bios_version': 'V1.31', 'arquitetura': 'AMD64', 'versao_windows': 'Microsoft Windows 11 Pro 10.0.26200', 'mac_address': 'C2-35-32-C3-F9-21', 'disco_total_gb': '476.0', 'disco_livre_gb': '158.45', 'agent_version': '1.0.0', 'ultimo_boot': '2026-04-27T09:01:17.544237', 'id': 1, 'ultima_comunicacao': '2026-04-28T21:48:04.893650'}
