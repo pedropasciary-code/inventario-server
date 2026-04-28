@@ -2,27 +2,146 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Inventário</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDP SYSTEM - Login</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #2f505f, #4c8c9c);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2f505f;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 440px;
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 36px;
+            box-shadow: 0 20px 50px rgba(47, 80, 95, 0.25);
+        }
+
+        .brand {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .brand-logo {
+            width: 84px;
+            height: 84px;
+            object-fit: contain;
+            margin-bottom: 16px;
+        }
+
+        .brand h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            color: #2f505f;
+        }
+
+        .brand p {
+            margin: 0;
+            color: #668086;
+        }
+
+        .error {
+            margin-bottom: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            background: #fde8e8;
+            color: #991b1b;
+            font-size: 14px;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            color: #2f505f;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #adc7c7;
+            border-radius: 12px;
+            font-size: 15px;
+            background: #f8fbfb;
+        }
+
+        .field input:focus {
+            outline: none;
+            border-color: #4c8c9c;
+            box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.15);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 13px 14px;
+            border: none;
+            border-radius: 12px;
+            background: #2f505f;
+            color: white;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .submit-btn:hover {
+            background: #4c8c9c;
+        }
+
+        .footer-note {
+            margin-top: 18px;
+            text-align: center;
+            font-size: 12px;
+            color: #7a8d92;
+        }
+    </style>
 </head>
 <body>
-    <h1>Login</h1>
-
-    {% if error %}
-        <p style="color: red;">{{ error }}</p>
-    {% endif %}
-
-    <form method="post" action="/login">
-        <div>
-            <label>Usuário</label>
-            <input type="text" name="username" required>
+    <div class="login-card">
+        <div class="brand">
+            <img class="brand-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+            <h1>RDP SYSTEM</h1>
+            <p>Painel de Inventário de Ativos</p>
         </div>
-        <br>
-        <div>
-            <label>Senha</label>
-            <input type="password" name="password" required>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login">
+            <div class="field">
+                <label for="username">Usuário</label>
+                <input id="username" type="text" name="username" required>
+            </div>
+
+            <div class="field">
+                <label for="password">Senha</label>
+                <input id="password" type="password" name="password" required>
+            </div>
+
+            <button class="submit-btn" type="submit">Entrar</button>
+        </form>
+
+        <div class="footer-note">
+            RDP SYSTEM • Inventário Corporativo
         </div>
-        <br>
-        <button type="submit">Entrar</button>
-    </form>
+    </div>
 </body>
 </html>

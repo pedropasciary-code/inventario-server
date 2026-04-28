@@ -2,82 +2,147 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Detalhe do Ativo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDP SYSTEM - Detalhe do Ativo</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
-            margin: 24px;
+            background: #f4f8f8;
+            color: #2f505f;
         }
 
-        h1 {
-            margin-bottom: 8px;
+        .layout {
+            padding: 24px;
         }
 
-        .topbar {
+        .header {
+            background: linear-gradient(135deg, #2f505f, #4c8c9c);
+            color: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            gap: 16px;
+            flex-wrap: wrap;
+            box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
+        }
+
+        .header h1 {
+            margin: 0 0 8px;
+        }
+
+        .header p {
+            margin: 0;
+            color: #dceaea;
         }
 
         a.button {
             text-decoration: none;
             padding: 10px 14px;
-            background: #222;
-            color: white;
-            border-radius: 6px;
+            background: white;
+            color: #2f505f;
+            border-radius: 12px;
+            font-weight: bold;
         }
 
-        table {
-            width: 100%;
-            max-width: 900px;
-            border-collapse: collapse;
+        a.button:hover {
+            background: #adc7c7;
         }
 
-        th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: left;
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
         }
 
-        th {
-            width: 260px;
-            background: #f3f3f3;
+        .card {
+            background: white;
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
+            border: 1px solid #e4eeee;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #2f505f;
+        }
+
+        .detail-item {
+            margin-bottom: 12px;
+        }
+
+        .detail-label {
+            display: block;
+            font-size: 13px;
+            color: #668086;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 15px;
+            font-weight: bold;
+            word-break: break-word;
+            color: #2f505f;
         }
     </style>
 </head>
 <body>
-    <div class="topbar">
-        <div>
-            <h1>Detalhe do Ativo</h1>
-            <p>{{ asset.hostname or "Sem hostname" }}</p>
+    <div class="layout">
+        <div class="header">
+            <div>
+                <h1>RDP SYSTEM</h1>
+                <p>Detalhe do ativo • {{ asset.hostname or "Sem hostname" }}</p>
+            </div>
+
+            <a class="button" href="/dashboard">Voltar</a>
         </div>
 
-        <a class="button" href="/dashboard">Voltar</a>
-    </div>
+        <div class="details-grid">
+            <div class="card">
+                <h2>Identificação</h2>
+                <div class="detail-item"><span class="detail-label">ID</span><span class="detail-value">{{ asset.id }}</span></div>
+                <div class="detail-item"><span class="detail-label">Hostname</span><span class="detail-value">{{ asset.hostname or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Usuário</span><span class="detail-value">{{ asset.usuario or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Serial</span><span class="detail-value">{{ asset.serial or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Fabricante</span><span class="detail-value">{{ asset.fabricante or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Modelo</span><span class="detail-value">{{ asset.modelo or "" }}</span></div>
+            </div>
 
-    <table>
-        <tbody>
-            <tr><th>ID</th><td>{{ asset.id }}</td></tr>
-            <tr><th>Hostname</th><td>{{ asset.hostname or "" }}</td></tr>
-            <tr><th>Usuário</th><td>{{ asset.usuario or "" }}</td></tr>
-            <tr><th>Serial</th><td>{{ asset.serial or "" }}</td></tr>
-            <tr><th>Fabricante</th><td>{{ asset.fabricante or "" }}</td></tr>
-            <tr><th>Modelo</th><td>{{ asset.modelo or "" }}</td></tr>
-            <tr><th>CPU</th><td>{{ asset.cpu or "" }}</td></tr>
-            <tr><th>RAM</th><td>{{ asset.ram or "" }}</td></tr>
-            <tr><th>Sistema</th><td>{{ asset.sistema or "" }}</td></tr>
-            <tr><th>Versão Windows</th><td>{{ asset.versao_windows or "" }}</td></tr>
-            <tr><th>Arquitetura</th><td>{{ asset.arquitetura or "" }}</td></tr>
-            <tr><th>IP</th><td>{{ asset.ip or "" }}</td></tr>
-            <tr><th>MAC Address</th><td>{{ asset.mac_address or "" }}</td></tr>
-            <tr><th>Placa-mãe</th><td>{{ asset.motherboard or "" }}</td></tr>
-            <tr><th>BIOS</th><td>{{ asset.bios_version or "" }}</td></tr>
-            <tr><th>Disco Total</th><td>{{ asset.disco_total_gb or "" }}</td></tr>
-            <tr><th>Disco Livre</th><td>{{ asset.disco_livre_gb or "" }}</td></tr>
-            <tr><th>Último Boot</th><td>{{ asset.ultimo_boot or "" }}</td></tr>
-            <tr><th>Última Comunicação</th><td>{{ asset.ultima_comunicacao or "" }}</td></tr>
-        </tbody>
-    </table>
+            <div class="card">
+                <h2>Sistema e Hardware</h2>
+                <div class="detail-item"><span class="detail-label">CPU</span><span class="detail-value">{{ asset.cpu or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">RAM</span><span class="detail-value">{{ asset.ram or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Sistema</span><span class="detail-value">{{ asset.sistema or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Versão Windows</span><span class="detail-value">{{ asset.versao_windows or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Arquitetura</span><span class="detail-value">{{ asset.arquitetura or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Placa-mãe</span><span class="detail-value">{{ asset.motherboard or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">BIOS</span><span class="detail-value">{{ asset.bios_version or "" }}</span></div>
+            </div>
+
+            <div class="card">
+                <h2>Rede e Disco</h2>
+                <div class="detail-item"><span class="detail-label">IP</span><span class="detail-value">{{ asset.ip or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">MAC Address</span><span class="detail-value">{{ asset.mac_address or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Disco Total</span><span class="detail-value">{{ asset.disco_total_gb or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Disco Livre</span><span class="detail-value">{{ asset.disco_livre_gb or "" }}</span></div>
+            </div>
+
+            <div class="card">
+                <h2>Comunicação</h2>
+                <div class="detail-item"><span class="detail-label">Último Boot</span><span class="detail-value">{{ asset.ultimo_boot or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Última Comunicação</span><span class="detail-value">{{ asset.ultima_comunicacao or "" }}</span></div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

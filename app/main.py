@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from openpyxl import Workbook
 from openpyxl.styles import Font
+from fastapi.staticfiles import StaticFiles
 
 from .database import Base, engine, SessionLocal
 from .config import AGENT_TOKEN
@@ -17,6 +18,7 @@ from . import models, schemas
 
 # Instancia a API principal e configura onde o FastAPI buscará os templates HTML.
 app = FastAPI(title="Inventário Server")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 # Garante a criação das tabelas na inicialização caso ainda não existam no banco.
@@ -33,7 +35,6 @@ def get_db():
 
 
 def validate_agent_token(x_agent_token: str = Header(default=None)):
-    # Restringe o endpoint de check-in para apenas agents autorizados.
     if x_agent_token != AGENT_TOKEN:
         raise HTTPException(status_code=401, detail="Token do agent inválido")
 

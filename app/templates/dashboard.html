@@ -2,151 +2,291 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard - Inventário</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDP SYSTEM - Dashboard</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
-            margin: 24px;
+            background: #f4f8f8;
+            color: #2f505f;
         }
 
-        h1 {
-            margin-bottom: 8px;
+        .layout {
+            padding: 24px;
         }
 
-        .topbar {
+        .header {
+            background: linear-gradient(135deg, #2f505f, #4c8c9c);
+            color: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            gap: 16px;
+            gap: 20px;
             flex-wrap: wrap;
+            box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-logo {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+            background: white;
+            border-radius: 14px;
+            padding: 6px;
+        }
+
+        .header h1 {
+            margin: 0 0 6px;
+            font-size: 30px;
+        }
+
+        .header p {
+            margin: 0;
+            color: #dceaea;
         }
 
         .actions {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             flex-wrap: wrap;
         }
 
         a.button, button.button {
             text-decoration: none;
             padding: 10px 14px;
-            background: #222;
-            color: white;
-            border-radius: 6px;
+            background: white;
+            color: #2f505f;
+            border-radius: 12px;
             border: none;
             cursor: pointer;
             font-size: 14px;
+            font-weight: bold;
+        }
+
+        a.button:hover, button.button:hover {
+            background: #adc7c7;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
+            border: 1px solid #e4eeee;
+        }
+
+        .card-title {
+            font-size: 14px;
+            color: #668086;
+            margin-bottom: 8px;
+        }
+
+        .card-value {
+            font-size: 30px;
+            font-weight: bold;
+            color: #2f505f;
+        }
+
+        .search-box, .table-box, .empty {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
+            border: 1px solid #e4eeee;
+        }
+
+        .search-box {
+            margin-bottom: 24px;
         }
 
         form.search-form {
             display: flex;
-            gap: 10px;
-            align-items: center;
-            margin-bottom: 16px;
+            gap: 12px;
             flex-wrap: wrap;
         }
 
         input[type="text"] {
-            padding: 10px;
-            min-width: 280px;
+            flex: 1;
+            min-width: 260px;
+            padding: 12px 14px;
+            border: 1px solid #adc7c7;
+            border-radius: 12px;
+            font-size: 14px;
+            background: #fbfdfd;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4c8c9c;
+            box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.12);
+        }
+
+        .table-box {
+            overflow-x: auto;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 12px;
+            min-width: 980px;
         }
 
         th, td {
-            border: 1px solid #ccc;
-            padding: 10px;
+            padding: 14px 12px;
             text-align: left;
+            border-bottom: 1px solid #e6eeee;
             font-size: 14px;
         }
 
         th {
-            background: #f3f3f3;
+            color: #4f676d;
+            background: #f6fbfb;
         }
 
-        tr:nth-child(even) {
-            background: #fafafa;
+        tr:hover {
+            background: #f8fcfc;
+        }
+
+        .hostname-link {
+            text-decoration: none;
+            color: #4c8c9c;
+            font-weight: bold;
+        }
+
+        .hostname-link:hover {
+            text-decoration: underline;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #dff0ec;
+            color: #2f505f;
+            font-size: 12px;
+            font-weight: bold;
         }
 
         .empty {
-            margin-top: 20px;
-            padding: 16px;
-            background: #f7f7f7;
-            border: 1px solid #ddd;
+            color: #668086;
         }
     </style>
 </head>
 <body>
-    <div class="topbar">
-        <div>
-            <h1>Dashboard de Inventário</h1>
-            <p>Usuário logado: {{ session_user }}</p>
+    <div class="layout">
+        <div class="header">
+            <div class="header-left">
+                <img class="header-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+                <div>
+                    <h1>RDP SYSTEM</h1>
+                    <p>Painel de Inventário • Usuário: {{ session_user }}</p>
+                </div>
+            </div>
+
+            <div class="actions">
+                <a class="button" href="/export/csv{% if q %}?q={{ q }}{% endif %}">Exportar CSV</a>
+                <a class="button" href="/export/xlsx{% if q %}?q={{ q }}{% endif %}">Exportar Excel</a>
+                <form method="post" action="/logout" style="margin:0;">
+                    <button class="button" type="submit">Sair</button>
+                </form>
+            </div>
         </div>
 
-        <div class="actions">
-            <a class="button" href="/export/csv{% if q %}?q={{ q }}{% endif %}">Exportar CSV</a>
-            <a class="button" href="/export/xlsx{% if q %}?q={{ q }}{% endif %}">Exportar Excel</a>
-            <form method="post" action="/logout" style="display:inline;">
-                <button class="button" type="submit">Sair</button>
+        <div class="stats">
+            <div class="card">
+                <div class="card-title">Total de ativos</div>
+                <div class="card-value">{{ total_assets }}</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Ativos com IP</div>
+                <div class="card-value">{{ assets_with_ip }}</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Ativos com serial</div>
+                <div class="card-value">{{ assets_with_serial }}</div>
+            </div>
+        </div>
+
+        <div class="search-box">
+            <form class="search-form" method="get" action="/dashboard">
+                <input
+                    type="text"
+                    name="q"
+                    placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
+                    value="{{ q or '' }}"
+                >
+                <button class="button" type="submit">Buscar</button>
+                <a class="button" href="/dashboard">Limpar</a>
             </form>
         </div>
-    </div>
 
-    <form class="search-form" method="get" action="/dashboard">
-        <input
-            type="text"
-            name="q"
-            placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
-            value="{{ q or '' }}"
-        >
-        <button class="button" type="submit">Buscar</button>
-        <a class="button" href="/dashboard">Limpar</a>
-    </form>
-
-    {% if assets %}
-    <table>
-        <thead>
-            <tr>
-                <th>Hostname</th>
-                <th>Usuário</th>
-                <th>Serial</th>
-                <th>Fabricante</th>
-                <th>Modelo</th>
-                <th>CPU</th>
-                <th>RAM</th>
-                <th>IP</th>
-                <th>Última comunicação</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for asset in assets %}
-            <tr>
-                <td>
-                    <a href="/assets/{{ asset.id }}">
-                        {{ asset.hostname or "Sem hostname" }}
-                    </a>
-                </td>
-                <td>{{ asset.usuario or "" }}</td>
-                <td>{{ asset.serial or "" }}</td>
-                <td>{{ asset.fabricante or "" }}</td>
-                <td>{{ asset.modelo or "" }}</td>
-                <td>{{ asset.cpu or "" }}</td>
-                <td>{{ asset.ram or "" }}</td>
-                <td>{{ asset.ip or "" }}</td>
-                <td>{{ asset.ultima_comunicacao or "" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="empty">
-        Nenhum ativo encontrado.
+        {% if assets %}
+        <div class="table-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>Usuário</th>
+                        <th>Serial</th>
+                        <th>Fabricante</th>
+                        <th>Modelo</th>
+                        <th>CPU</th>
+                        <th>RAM</th>
+                        <th>IP</th>
+                        <th>Status</th>
+                        <th>Última comunicação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for asset in assets %}
+                    <tr>
+                        <td>
+                            <a class="hostname-link" href="/assets/{{ asset.id }}">
+                                {{ asset.hostname or "Sem hostname" }}
+                            </a>
+                        </td>
+                        <td>{{ asset.usuario or "" }}</td>
+                        <td>{{ asset.serial or "" }}</td>
+                        <td>{{ asset.fabricante or "" }}</td>
+                        <td>{{ asset.modelo or "" }}</td>
+                        <td>{{ asset.cpu or "" }}</td>
+                        <td>{{ asset.ram or "" }}</td>
+                        <td>{{ asset.ip or "" }}</td>
+                        <td><span class="badge">Ativo</span></td>
+                        <td>{{ asset.ultima_comunicacao or "" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">
+            Nenhum ativo encontrado.
+        </div>
+        {% endif %}
     </div>
-    {% endif %}
 </body>
 </html>
