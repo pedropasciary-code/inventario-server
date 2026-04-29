@@ -197,10 +197,45 @@
             display: inline-block;
             padding: 6px 10px;
             border-radius: 999px;
-            background: #dff0ec;
-            color: #2f505f;
             font-size: 12px;
             font-weight: bold;
+        }
+
+        .badge.online {
+            background: #dff0ec;
+            color: #1f6f57;
+        }
+
+        .badge.stale {
+            background: #fff1d6;
+            color: #8a5a00;
+        }
+
+        .badge.inactive {
+            background: #fde8e8;
+            color: #991b1b;
+        }
+
+        .pagination {
+            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            color: #668086;
+            font-size: 14px;
+        }
+
+        .pagination-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pagination .button.disabled {
+            opacity: 0.45;
+            pointer-events: none;
         }
 
         .empty {
@@ -221,8 +256,8 @@
             </div>
 
             <div class="actions">
-                <a class="button" href="/export/csv{% if q %}?q={{ q }}{% endif %}">Exportar CSV</a>
-                <a class="button" href="/export/xlsx{% if q %}?q={{ q }}{% endif %}">Exportar Excel</a>
+                <a class="button" href="/export/csv{% if q %}?q={{ q|urlencode }}{% endif %}">Exportar CSV</a>
+                <a class="button" href="/export/xlsx{% if q %}?q={{ q|urlencode }}{% endif %}">Exportar Excel</a>
                 <form method="post" action="/logout" style="margin:0;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button class="button" type="submit">Sair</button>
@@ -238,13 +273,18 @@
             </div>
 
             <div class="card">
-                <div class="card-title">Ativos com IP</div>
-                <div class="card-value">{{ assets_with_ip }}</div>
+                <div class="card-title">Comunicando</div>
+                <div class="card-value">{{ communicating_assets }}</div>
             </div>
 
             <div class="card">
-                <div class="card-title">Ativos com serial</div>
-                <div class="card-value">{{ assets_with_serial }}</div>
+                <div class="card-title">Atrasados</div>
+                <div class="card-value">{{ stale_assets }}</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Inativos</div>
+                <div class="card-value">{{ inactive_assets }}</div>
             </div>
         </div>
 
@@ -257,6 +297,7 @@
                     placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
                     value="{{ q or '' }}"
                 >
+                <input type="hidden" name="per_page" value="{{ per_page }}">
                 <button class="button" type="submit">Buscar</button>
                 <a class="button" href="/dashboard">Limpar</a>
             </form>
@@ -295,12 +336,33 @@
                         <td>{{ asset.cpu or "" }}</td>
                         <td>{{ asset.ram or "" }}</td>
                         <td>{{ asset.ip or "" }}</td>
-                        <td><span class="badge">Ativo</span></td>
-                        <td>{{ asset.ultima_comunicacao or "" }}</td>
+                        <td><span class="badge {{ asset.dashboard_status['class'] }}">{{ asset.dashboard_status['label'] }}</span></td>
+                        <td>{{ asset.ultima_comunicacao|datetime_br }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+
+            <div class="pagination">
+                <div>
+                    Exibindo {{ first_item }}-{{ last_item }} de {{ total_assets }} ativos
+                </div>
+                <div class="pagination-actions">
+                    <a
+                        class="button{% if not has_previous_page %} disabled{% endif %}"
+                        href="/dashboard?page={{ page - 1 }}&per_page={{ per_page }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                    >
+                        Anterior
+                    </a>
+                    <span>Página {{ page }} de {{ total_pages }}</span>
+                    <a
+                        class="button{% if not has_next_page %} disabled{% endif %}"
+                        href="/dashboard?page={{ page + 1 }}&per_page={{ per_page }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                    >
+                        Próxima
+                    </a>
+                </div>
+            </div>
         </div>
         {% else %}
         <!-- Estado vazio para busca sem resultado ou banco ainda sem check-ins. -->

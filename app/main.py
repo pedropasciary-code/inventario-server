@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import csv
 import hmac
 import io
+import math
 import secrets
 
 from fastapi import FastAPI, Depends, Header, HTTPException, Request, Form
@@ -16,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from .database import SessionLocal
-from .config import AGENT_TOKEN, SECRET_KEY, SESSION_COOKIE_SECURE
+from .config import AGENT_TOKEN, SECRET_KEY, SESSION_COOKIE_SECURE, DISPLAY_TIMEZONE
 from .auth import verify_password
 from . import models, schemas
 
@@ -32,6 +33,32 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def ensure_utc(value: datetime | None) -> datetime | None:
+    if not value:
+        return None
+
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+
+    return value.astimezone(UTC)
+
+
+def format_datetime(value: datetime | None) -> str:
+    value = ensure_utc(value)
+
+    if not value:
+        return ""
+
+    return value.astimezone(DISPLAY_TIMEZONE).strftime("%d/%m/%Y %H:%M")
+
+
+templates.env.filters["datetime_br"] = format_datetime
 
 
 def get_db():
@@ -88,6 +115,11 @@ LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5
 LOGIN_RATE_LIMIT_WINDOW = timedelta(minutes=15)
 login_attempts: dict[str, list[datetime]] = {}
 
+DASHBOARD_DEFAULT_PAGE_SIZE = 25
+DASHBOARD_MAX_PAGE_SIZE = 100
+ASSET_ONLINE_WINDOW = timedelta(hours=24)
+ASSET_STALE_WINDOW = timedelta(days=7)
+
 
 def get_csrf_token(request: Request) -> str:
     token = request.session.get("csrf_token")
@@ -139,7 +171,7 @@ def prune_login_attempts(key: str, now: datetime):
 
 def enforce_login_rate_limit(request: Request, username: str):
     key = login_rate_limit_key(request, username)
-    attempts = prune_login_attempts(key, datetime.utcnow())
+    attempts = prune_login_attempts(key, utc_now())
 
     if len(attempts) >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS:
         raise HTTPException(
@@ -150,7 +182,7 @@ def enforce_login_rate_limit(request: Request, username: str):
 
 def register_failed_login(request: Request, username: str):
     key = login_rate_limit_key(request, username)
-    now = datetime.utcnow()
+    now = utc_now()
     attempts = prune_login_attempts(key, now)
     attempts.append(now)
     login_attempts[key] = attempts
@@ -158,6 +190,49 @@ def register_failed_login(request: Request, username: str):
 
 def clear_failed_logins(request: Request, username: str):
     login_attempts.pop(login_rate_limit_key(request, username), None)
+
+
+def build_asset_query(db: Session, q: str | None = None):
+    query = db.query(models.Asset)
+
+    if q:
+        termo = f"%{q}%"
+        query = query.filter(
+            or_(
+                models.Asset.hostname.ilike(termo),
+                models.Asset.usuario.ilike(termo),
+                models.Asset.serial.ilike(termo),
+                models.Asset.fabricante.ilike(termo),
+                models.Asset.modelo.ilike(termo),
+                models.Asset.ip.ilike(termo)
+            )
+        )
+
+    return query
+
+
+def clamp_page_size(per_page: int) -> int:
+    if per_page <= 0:
+        return DASHBOARD_DEFAULT_PAGE_SIZE
+
+    return min(per_page, DASHBOARD_MAX_PAGE_SIZE)
+
+
+def get_asset_status(asset: models.Asset, now: datetime) -> dict:
+    last_seen = ensure_utc(asset.ultima_comunicacao)
+
+    if not last_seen:
+        return {"label": "Sem check-in", "class": "inactive"}
+
+    elapsed = now - last_seen
+
+    if elapsed <= ASSET_ONLINE_WINDOW:
+        return {"label": "Comunicando", "class": "online"}
+
+    if elapsed <= ASSET_STALE_WINDOW:
+        return {"label": "Atrasado", "class": "stale"}
+
+    return {"label": "Inativo", "class": "inactive"}
 
 
 def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
@@ -226,7 +301,7 @@ def apply_asset_payload(asset_record: models.Asset, asset_data: dict):
     for field, value in asset_data.items():
         setattr(asset_record, field, value)
 
-    asset_record.ultima_comunicacao = datetime.utcnow()
+    asset_record.ultima_comunicacao = utc_now()
 
 
 def commit_asset_checkin(asset_record: models.Asset, asset_data: dict, db: Session):
@@ -304,36 +379,66 @@ def login(
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+def dashboard(
+    request: Request,
+    q: str | None = None,
+    page: int = 1,
+    per_page: int = DASHBOARD_DEFAULT_PAGE_SIZE,
+    db: Session = Depends(get_db)
+):
     # Usa a sessão assinada para impedir acesso ao painel sem autenticação.
     session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Monta a consulta base com todos os ativos cadastrados.
-    query = db.query(models.Asset)
+    query = build_asset_query(db, q)
+    now = utc_now()
+    online_after = now - ASSET_ONLINE_WINDOW
+    stale_after = now - ASSET_STALE_WINDOW
 
-    if q:
-        # Aplica busca textual em múltiplos campos para facilitar a localização de máquinas.
-        termo = f"%{q}%"
-        query = query.filter(
+    total_assets = query.count()
+    communicating_assets = (
+        query
+        .filter(models.Asset.ultima_comunicacao >= online_after)
+        .count()
+    )
+    stale_assets = (
+        query
+        .filter(models.Asset.ultima_comunicacao < online_after)
+        .filter(models.Asset.ultima_comunicacao >= stale_after)
+        .count()
+    )
+    inactive_assets = (
+        query
+        .filter(
             or_(
-                models.Asset.hostname.ilike(termo),
-                models.Asset.usuario.ilike(termo),
-                models.Asset.serial.ilike(termo),
-                models.Asset.fabricante.ilike(termo),
-                models.Asset.modelo.ilike(termo),
-                models.Asset.ip.ilike(termo)
+                models.Asset.ultima_comunicacao.is_(None),
+                models.Asset.ultima_comunicacao < stale_after
             )
         )
+        .count()
+    )
 
-    # Ordena por hostname para manter a listagem previsível no dashboard.
-    assets = query.order_by(models.Asset.hostname.asc()).all()
+    per_page = clamp_page_size(per_page)
+    total_pages = max(math.ceil(total_assets / per_page), 1)
+    page = min(max(page, 1), total_pages)
+    offset = (page - 1) * per_page
 
-    total_assets = len(assets)
-    assets_with_ip = len([asset for asset in assets if asset.ip])
-    assets_with_serial = len([asset for asset in assets if asset.serial])
+    # Ordena e pagina no banco para manter o dashboard leve quando o inventário crescer.
+    assets = (
+        query
+        .order_by(models.Asset.hostname.asc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+    for asset in assets:
+        asset.dashboard_status = get_asset_status(asset, now)
+
+    first_item = offset + 1 if total_assets else 0
+    last_item = min(offset + len(assets), total_assets)
 
     return templates.TemplateResponse(
         request,
@@ -343,8 +448,16 @@ def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_
             "assets": assets,
             "q": q,
             "total_assets": total_assets,
-            "assets_with_ip": assets_with_ip,
-            "assets_with_serial": assets_with_serial,
+            "communicating_assets": communicating_assets,
+            "stale_assets": stale_assets,
+            "inactive_assets": inactive_assets,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": total_pages,
+            "first_item": first_item,
+            "last_item": last_item,
+            "has_previous_page": page > 1,
+            "has_next_page": page < total_pages,
             "csrf_token": get_csrf_token(request)
         }
     )
@@ -368,7 +481,7 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
         return commit_asset_checkin(existing_asset, asset_data, db)
 
     # Se nenhum identificador existente foi encontrado, cria um novo registro do ativo.
-    new_asset = models.Asset(**asset_data, ultima_comunicacao=datetime.utcnow())
+    new_asset = models.Asset(**asset_data, ultima_comunicacao=utc_now())
 
     db.add(new_asset)
     return commit_asset_checkin(new_asset, asset_data, db)

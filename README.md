@@ -115,12 +115,14 @@ DATABASE_URL=postgresql://usuario:senha@localhost:5432/inventario
 AGENT_TOKEN=seu_token_do_agent
 SECRET_KEY=sua_chave_secreta
 SESSION_COOKIE_SECURE=false
+APP_TIMEZONE=America/Sao_Paulo
 ```
 
 - `DATABASE_URL`: conexao usada pela API para acessar o banco.
 - `AGENT_TOKEN`: token esperado no header `X-Agent-Token` do endpoint `/checkin`.
 - `SECRET_KEY`: chave usada para assinar a sessao web.
 - `SESSION_COOKIE_SECURE`: use `true` quando a API estiver publicada com HTTPS.
+- `APP_TIMEZONE`: fuso usado para formatar datas no painel web.
 
 ## Executando A API
 
@@ -245,6 +247,17 @@ pyinstaller rdp-agent.spec
 
 O executavel gerado fica em `dist/rdp-agent.exe`.
 
+## Testes Automatizados
+
+As dependencias de teste ficam em `requirements-dev.txt`.
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Os testes usam SQLite em memoria e sobrescrevem a dependencia de banco da API, sem alterar o PostgreSQL configurado no `.env`.
+
 ## Endpoints Principais
 
 Publicos:
@@ -322,6 +335,8 @@ Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409
 - `agent/agent.py`: ponto de entrada do agent, log e reenvio de payloads falhos.
 - `requirements.txt`: dependencias da API e das migrations.
 - `requirements-agent.txt`: dependencias do agent Windows e do empacotamento.
+- `requirements-dev.txt`: dependencias para executar testes automatizados.
+- `tests/`: testes dos fluxos principais da API e do dashboard.
 - `install_agent.ps1`: instalador local a partir da raiz do projeto.
 - `agent-deploy/install_agent.ps1`: instalador do pacote distribuivel.
 
@@ -337,5 +352,5 @@ Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409
 
 ## Proximos Passos Sugeridos
 
-- adicionar testes automatizados para rotas principais e coleta do agent
 - adicionar paginacao e status real por ultima comunicacao no dashboard
+- adicionar testes especificos da coleta WMI em ambiente Windows

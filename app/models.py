@@ -1,6 +1,10 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
-from datetime import datetime
+from datetime import UTC, datetime
 from .database import Base
+
+
+def utc_now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Asset(Base):
@@ -27,8 +31,8 @@ class Asset(Base):
     disco_livre_gb = Column(String, nullable=True)
     agent_version = Column(String, nullable=True)
 
-    ultimo_boot = Column(DateTime, nullable=True)
-    ultima_comunicacao = Column(DateTime, default=datetime.utcnow)
+    ultimo_boot = Column(DateTime(timezone=True), nullable=True)
+    ultima_comunicacao = Column(DateTime(timezone=True), default=utc_now)
 
 
 class User(Base):
@@ -39,4 +43,4 @@ class User(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

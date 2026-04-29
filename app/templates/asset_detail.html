@@ -148,8 +148,8 @@
 
             <div class="card">
                 <h2>Comunicação</h2>
-                <div class="detail-item"><span class="detail-label">Último Boot</span><span class="detail-value">{{ asset.ultimo_boot or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Última Comunicação</span><span class="detail-value">{{ asset.ultima_comunicacao or "" }}</span></div>
+                <div class="detail-item"><span class="detail-label">Último Boot</span><span class="detail-value">{{ asset.ultimo_boot|datetime_br }}</span></div>
+                <div class="detail-item"><span class="detail-label">Última Comunicação</span><span class="detail-value">{{ asset.ultima_comunicacao|datetime_br }}</span></div>
             </div>
         </div>
     </div>

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
@@ -32,9 +32,7 @@ class AssetCreate(AssetBase):
 
 class AssetResponse(AssetBase):
     # Schema devolvido pela API após criar ou atualizar um ativo.
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     ultima_comunicacao: datetime
-
-    class Config:
-        # Permite converter diretamente objetos ORM do SQLAlchemy em resposta Pydantic.
-        from_attributes = True
