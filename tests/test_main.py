@@ -412,3 +412,73 @@ def test_exports_and_logout_record_audit_events(client, db_session, admin_user):
     assert all(event.username == "admin" for event in events)
     export_details = json.loads(events[1].details_json)
     assert export_details["status"] == "online"
+
+
+def test_audit_page_requires_login(client):
+    response = client.get("/audit", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+
+
+def test_audit_page_filters_events(client, db_session, admin_user):
+    db_session.add_all(
+        [
+            models.AuditEvent(
+                event_type="checkin_rejected",
+                username=None,
+                ip_address="127.0.0.1",
+                details_json=json.dumps({"reason": "identity_conflict"}),
+                created_at=datetime.now(UTC),
+            ),
+            models.AuditEvent(
+                event_type="export_csv",
+                username="admin",
+                ip_address="127.0.0.1",
+                details_json=json.dumps({"status": "all"}),
+                created_at=datetime.now(UTC),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+
+    response = client.get("/audit?event_type=checkin_rejected&per_page=10")
+
+    assert response.status_code == 200
+    assert "Check-in rejeitado" in response.text
+    assert "identity_conflict" in response.text
+    assert '"status": "all"' not in response.text
+
+
+def test_audit_csv_export_respects_filters(client, db_session, admin_user):
+    db_session.add_all(
+        [
+            models.AuditEvent(
+                event_type="checkin_rejected",
+                username=None,
+                ip_address="127.0.0.1",
+                details_json=json.dumps({"reason": "missing_identity"}),
+                created_at=datetime.now(UTC),
+            ),
+            models.AuditEvent(
+                event_type="login_failed",
+                username="admin",
+                ip_address="127.0.0.1",
+                details_json=json.dumps({"reason": "invalid_credentials"}),
+                created_at=datetime.now(UTC),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+
+    response = client.get("/audit/export/csv?event_type=login_failed")
+
+    assert response.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert len(rows) == 1
+    assert rows[0]["Tipo"] == "login_failed"
+    assert rows[0]["Usuario"] == "admin"

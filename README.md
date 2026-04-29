@@ -24,6 +24,7 @@ Fluxo de funcionamento:
 - Busca por hostname, usuario, serial, fabricante, modelo e IP.
 - Dashboard com paginacao, filtro por status e ordenacao por colunas principais.
 - Status real por ultima comunicacao: comunicando, atrasado ou inativo.
+- Tela de auditoria com filtros, paginacao e exportacao CSV.
 - Detalhe do ativo com interfaces de rede coletadas pelo agent.
 - Histórico dos últimos check-ins no detalhe do ativo.
 - Auditoria basica de login, logout, exportacoes e check-ins rejeitados.
@@ -286,6 +287,8 @@ Protegidos por sessao:
 - `GET /assets/{asset_id}`: exibe detalhes de um ativo.
 - `GET /export/csv`: exporta o inventario em CSV.
 - `GET /export/xlsx`: exporta o inventario em Excel.
+- `GET /audit`: lista eventos de auditoria com filtros e paginacao.
+- `GET /audit/export/csv`: exporta eventos de auditoria filtrados em CSV.
 - `POST /logout`: encerra a sessao.
 
 Protegido por token do agent:
@@ -354,6 +357,8 @@ A tabela `audit_events` registra eventos relevantes da API para investigacao ope
 - `checkin_rejected`, incluindo rejeicoes por identidade ausente ou conflito de identidade
 
 Os detalhes adicionais ficam em `details_json`, junto com usuario quando houver sessao web e IP de origem da requisicao.
+
+A tela `/audit` permite consultar os eventos registrados com filtros por tipo, usuario e intervalo de datas. A exportacao `/audit/export/csv` aplica os mesmos filtros da tela.
 
 ## Arquivos Principais
 
