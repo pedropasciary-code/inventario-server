@@ -25,6 +25,7 @@ Fluxo de funcionamento:
 - Dashboard com paginacao, filtro por status e ordenacao por colunas principais.
 - Status real por ultima comunicacao: comunicando, atrasado ou inativo.
 - Detalhe do ativo com interfaces de rede coletadas pelo agent.
+- Histórico dos últimos check-ins no detalhe do ativo.
 - Exportacao em `CSV` e `XLSX` respeitando filtros, ordenacao e status.
 - Pagina de detalhes para cada ativo.
 - Agent com log rotativo local.
@@ -337,6 +338,10 @@ Antes de comparar ou salvar, a API normaliza `serial` e `mac_address` para reduz
 - disco_livre_gb
 - ultimo_boot
 - agent_version
+
+## Historico De Check-Ins
+
+A cada `POST /checkin`, a API grava um snapshot em `asset_checkins` com os principais identificadores e o payload recebido. A pagina de detalhe do ativo exibe os 10 check-ins mais recentes para ajudar auditoria e suporte.
 
 ## Arquivos Principais
 

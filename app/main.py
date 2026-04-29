@@ -449,8 +449,25 @@ def apply_asset_payload(asset_record: models.Asset, asset_data: dict):
     asset_record.ultima_comunicacao = utc_now()
 
 
-def commit_asset_checkin(asset_record: models.Asset, asset_data: dict, db: Session):
+def add_asset_checkin(asset_record: models.Asset, asset_data: dict, event_type: str, db: Session):
+    checkin = models.AssetCheckin(
+        asset_id=asset_record.id,
+        event_type=event_type,
+        hostname=asset_data.get("hostname"),
+        usuario=asset_data.get("usuario"),
+        serial=asset_data.get("serial"),
+        mac_address=asset_data.get("mac_address"),
+        ip=asset_data.get("ip"),
+        agent_version=asset_data.get("agent_version"),
+        payload_json=json.dumps(asset_data, ensure_ascii=False, default=str),
+    )
+    db.add(checkin)
+
+
+def commit_asset_checkin(asset_record: models.Asset, asset_data: dict, db: Session, event_type: str):
     try:
+        db.flush()
+        add_asset_checkin(asset_record, asset_data, event_type, db)
         db.commit()
         db.refresh(asset_record)
         return asset_record
@@ -466,6 +483,8 @@ def commit_asset_checkin(asset_record: models.Asset, asset_data: dict, db: Sessi
             ) from error
 
         apply_asset_payload(conflicting_asset, asset_data)
+        db.flush()
+        add_asset_checkin(conflicting_asset, asset_data, "merged", db)
         db.commit()
         db.refresh(conflicting_asset)
         return conflicting_asset
@@ -646,13 +665,13 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     if existing_asset:
         # Atualiza os dados do ativo já existente com a última coleta recebida do agent.
         apply_asset_payload(existing_asset, asset_data)
-        return commit_asset_checkin(existing_asset, asset_data, db)
+        return commit_asset_checkin(existing_asset, asset_data, db, "updated")
 
     # Se nenhum identificador existente foi encontrado, cria um novo registro do ativo.
     new_asset = models.Asset(**asset_data, ultima_comunicacao=utc_now())
 
     db.add(new_asset)
-    return commit_asset_checkin(new_asset, asset_data, db)
+    return commit_asset_checkin(new_asset, asset_data, db, "created")
 
 @app.get("/export/csv")
 def export_csv(
@@ -745,13 +764,22 @@ def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db))
     if not asset:
         raise HTTPException(status_code=404, detail="Ativo não encontrado")
 
+    recent_checkins = (
+        db.query(models.AssetCheckin)
+        .filter(models.AssetCheckin.asset_id == asset.id)
+        .order_by(models.AssetCheckin.created_at.desc())
+        .limit(10)
+        .all()
+    )
+
     # Renderiza a página com todos os metadados do ativo encontrado.
     return templates.TemplateResponse(
         request,
         "asset_detail.html",
         {
             "asset": asset,
-            "network_interfaces": parse_network_interfaces(asset.network_interfaces)
+            "network_interfaces": parse_network_interfaces(asset.network_interfaces),
+            "recent_checkins": recent_checkins
         }
     )
 

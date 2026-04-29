@@ -52,6 +52,9 @@ def test_checkin_creates_and_updates_asset(client, db_session):
     assert update_response.json()["id"] == create_response.json()["id"]
     assert update_response.json()["hostname"] == "PC-01-RENAMED"
     assert db_session.query(models.Asset).count() == 1
+    checkins = db_session.query(models.AssetCheckin).order_by(models.AssetCheckin.id.asc()).all()
+    assert [checkin.event_type for checkin in checkins] == ["created", "updated"]
+    assert checkins[-1].hostname == "PC-01-RENAMED"
 
 
 def test_checkin_normalizes_serial_and_mac_identity(client, db_session):
@@ -221,6 +224,19 @@ def test_asset_detail_shows_network_interfaces(client, db_session, admin_user):
         ultima_comunicacao=datetime.now(UTC),
     )
     db_session.add(asset)
+    db_session.flush()
+    db_session.add(
+        models.AssetCheckin(
+            asset_id=asset.id,
+            event_type="created",
+            hostname="PC-DETAIL",
+            ip="192.168.0.10",
+            mac_address="AA-BB-CC-00-00-01",
+            agent_version="1.0.0",
+            payload_json="{}",
+            created_at=datetime.now(UTC),
+        )
+    )
     db_session.commit()
     db_session.refresh(asset)
 
@@ -234,6 +250,9 @@ def test_asset_detail_shows_network_interfaces(client, db_session, admin_user):
     assert "VPN Adapter" in response.text
     assert "Física" in response.text
     assert "Virtual" in response.text
+    assert "Histórico de Check-ins" in response.text
+    assert "PC-DETAIL" in response.text
+    assert "1.0.0" in response.text
 
 
 def test_dashboard_filters_status_and_sorts(client, db_session, admin_user):

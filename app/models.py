@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Boolean, Text
 from datetime import UTC, datetime
 from .database import Base
 
@@ -45,3 +45,20 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class AssetCheckin(Base):
+    # Guarda o histórico bruto de check-ins recebidos para auditoria e suporte.
+    __tablename__ = "asset_checkins"
+
+    id = Column(Integer, primary_key=True, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=False, index=True)
+    event_type = Column(String, nullable=False)
+    hostname = Column(String, nullable=True)
+    usuario = Column(String, nullable=True)
+    serial = Column(String, nullable=True, index=True)
+    mac_address = Column(String, nullable=True, index=True)
+    ip = Column(String, nullable=True)
+    agent_version = Column(String, nullable=True)
+    payload_json = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)

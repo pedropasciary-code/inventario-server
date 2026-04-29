@@ -124,6 +124,29 @@
             gap: 6px;
             font-size: 14px;
         }
+
+        .checkin-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .checkin-item {
+            border-left: 4px solid #4c8c9c;
+            padding: 10px 12px;
+            background: #f8fcfc;
+            border-radius: 10px;
+        }
+
+        .checkin-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .checkin-meta {
+            color: #668086;
+            font-size: 13px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -193,6 +216,28 @@
                 <h2>Comunicação</h2>
                 <div class="detail-item"><span class="detail-label">Último Boot</span><span class="detail-value">{{ asset.ultimo_boot|datetime_br }}</span></div>
                 <div class="detail-item"><span class="detail-label">Última Comunicação</span><span class="detail-value">{{ asset.ultima_comunicacao|datetime_br }}</span></div>
+            </div>
+
+            <div class="card">
+                <h2>Histórico de Check-ins</h2>
+                {% if recent_checkins %}
+                <div class="checkin-list">
+                    {% for checkin in recent_checkins %}
+                    <div class="checkin-item">
+                        <div class="checkin-title">{{ checkin.created_at|datetime_br }} • {{ checkin.event_type }}</div>
+                        <div class="checkin-meta">
+                            Hostname: {{ checkin.hostname or "" }}<br>
+                            Usuário: {{ checkin.usuario or "" }}<br>
+                            IP: {{ checkin.ip or "" }}<br>
+                            MAC: {{ checkin.mac_address or "" }}<br>
+                            Agent: {{ checkin.agent_version or "" }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="detail-item"><span class="detail-value">Nenhum check-in registrado.</span></div>
+                {% endif %}
             </div>
         </div>
     </div>
