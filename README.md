@@ -101,7 +101,7 @@ pip install -r requirements.txt
 
 ## Variaveis De Ambiente
 
-Crie um arquivo `.env` na raiz do projeto:
+Copie `.env.example` para `.env` na raiz do projeto e ajuste os valores:
 
 ```env
 DATABASE_URL=postgresql://usuario:senha@localhost:5432/inventario
