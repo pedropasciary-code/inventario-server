@@ -64,6 +64,96 @@ def get_session_user(request: Request, db: Session) -> str | None:
     return user.username
 
 
+ASSET_TEXT_FIELDS = [
+    "hostname",
+    "usuario",
+    "cpu",
+    "ram",
+    "sistema",
+    "ip",
+    "serial",
+    "fabricante",
+    "modelo",
+    "motherboard",
+    "bios_version",
+    "arquitetura",
+    "versao_windows",
+    "mac_address",
+    "disco_total_gb",
+    "disco_livre_gb",
+    "agent_version",
+]
+
+
+def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
+    # Remove espaços acidentais e transforma strings vazias em None antes de comparar/salvar.
+    data = asset.model_dump()
+
+    for field in ASSET_TEXT_FIELDS:
+        value = data.get(field)
+
+        if isinstance(value, str):
+            value = value.strip()
+            data[field] = value or None
+
+    return data
+
+
+def find_asset_by_identity(asset_data: dict, db: Session) -> models.Asset | None:
+    # Usa identificadores em ordem de confiança: serial, MAC e por último hostname.
+    serial = asset_data.get("serial")
+    mac_address = asset_data.get("mac_address")
+    hostname = asset_data.get("hostname")
+
+    serial_asset = None
+    mac_asset = None
+
+    if serial:
+        serial_asset = db.query(models.Asset).filter(models.Asset.serial == serial).first()
+
+    if mac_address:
+        mac_asset = db.query(models.Asset).filter(models.Asset.mac_address == mac_address).first()
+
+    if serial_asset and mac_asset and serial_asset.id != mac_asset.id:
+        raise HTTPException(
+            status_code=409,
+            detail="Serial e MAC Address apontam para ativos diferentes"
+        )
+
+    if serial_asset:
+        return serial_asset
+
+    if mac_asset:
+        return mac_asset
+
+    if hostname:
+        hostname_matches = (
+            db.query(models.Asset)
+            .filter(models.Asset.hostname == hostname)
+            .limit(2)
+            .all()
+        )
+
+        if len(hostname_matches) == 1:
+            return hostname_matches[0]
+
+        if len(hostname_matches) > 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Hostname ambíguo; envie serial ou MAC Address para identificar o ativo"
+            )
+
+    return None
+
+
+def apply_asset_payload(asset_record: models.Asset, asset_data: dict):
+    # Atualiza todos os campos de inventário mantendo a atribuição em um só lugar.
+    for field, value in asset_data.items():
+        setattr(asset_record, field, value)
+
+    asset_record.ultima_comunicacao = datetime.utcnow()
+
+
 @app.get("/")
 def home():
     # Endpoint simples de health-check para validar se a API está no ar.
@@ -153,60 +243,26 @@ def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_
 
 @app.post("/checkin", response_model=schemas.AssetResponse, dependencies=[Depends(validate_agent_token)])
 def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
-    # Tenta localizar o ativo pelo serial para decidir entre atualização e criação.
-    existing_asset = None
+    # Normaliza o payload e exige ao menos um identificador estável para o inventário.
+    asset_data = normalize_asset_payload(asset)
 
-    if asset.serial:
-        existing_asset = db.query(models.Asset).filter(models.Asset.serial == asset.serial).first()
+    if not any(asset_data.get(field) for field in ("serial", "mac_address", "hostname")):
+        raise HTTPException(
+            status_code=422,
+            detail="Informe ao menos serial, MAC Address ou hostname para identificar o ativo"
+        )
+
+    existing_asset = find_asset_by_identity(asset_data, db)
 
     if existing_asset:
         # Atualiza os dados do ativo já existente com a última coleta recebida do agent.
-        existing_asset.hostname = asset.hostname
-        existing_asset.usuario = asset.usuario
-        existing_asset.cpu = asset.cpu
-        existing_asset.ram = asset.ram
-        existing_asset.sistema = asset.sistema
-        existing_asset.ip = asset.ip
-        existing_asset.serial = asset.serial
-        existing_asset.fabricante = asset.fabricante
-        existing_asset.modelo = asset.modelo
-        existing_asset.motherboard = asset.motherboard
-        existing_asset.bios_version = asset.bios_version
-        existing_asset.arquitetura = asset.arquitetura
-        existing_asset.versao_windows = asset.versao_windows
-        existing_asset.mac_address = asset.mac_address
-        existing_asset.disco_total_gb = asset.disco_total_gb
-        existing_asset.disco_livre_gb = asset.disco_livre_gb
-        existing_asset.ultimo_boot = asset.ultimo_boot
-        existing_asset.ultima_comunicacao = datetime.utcnow()
-        existing_asset.agent_version = asset.agent_version
-
+        apply_asset_payload(existing_asset, asset_data)
         db.commit()
         db.refresh(existing_asset)
         return existing_asset
 
-    # Se o serial ainda não existe no banco, cria um novo registro do ativo.
-    new_asset = models.Asset(
-        hostname=asset.hostname,
-        usuario=asset.usuario,
-        cpu=asset.cpu,
-        ram=asset.ram,
-        sistema=asset.sistema,
-        ip=asset.ip,
-        serial=asset.serial,
-        fabricante=asset.fabricante,
-        modelo=asset.modelo,
-        motherboard=asset.motherboard,
-        bios_version=asset.bios_version,
-        arquitetura=asset.arquitetura,
-        versao_windows=asset.versao_windows,
-        mac_address=asset.mac_address,
-        disco_total_gb=asset.disco_total_gb,
-        disco_livre_gb=asset.disco_livre_gb,
-        ultimo_boot=asset.ultimo_boot,
-        ultima_comunicacao=datetime.utcnow(),
-        agent_version=asset.agent_version
-    )
+    # Se nenhum identificador existente foi encontrado, cria um novo registro do ativo.
+    new_asset = models.Asset(**asset_data, ultima_comunicacao=datetime.utcnow())
 
     db.add(new_asset)
     db.commit()

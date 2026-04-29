@@ -14,12 +14,12 @@ Fluxo de funcionamento:
 1. O `agent` coleta dados locais como hostname, usuario, CPU, RAM, IP, serial, BIOS, disco e ultimo boot.
 2. Os dados sao enviados via `POST /checkin` para a API central.
 3. A API valida o header `X-Agent-Token` usando o valor de `AGENT_TOKEN`.
-4. O ativo e criado ou atualizado no banco, usando o serial como chave de identificacao quando disponivel.
+4. O ativo e criado ou atualizado no banco, usando serial, MAC Address ou hostname como chave de identificacao.
 5. O painel web permite buscar, abrir detalhes e exportar o inventario em CSV ou XLSX.
 
 ## Recursos
 
-- Cadastro e atualizacao automatica de ativos por serial.
+- Cadastro e atualizacao automatica de ativos por serial, MAC Address ou hostname.
 - Painel web com login por usuario e senha.
 - Busca por hostname, usuario, serial, fabricante, modelo e IP.
 - Exportacao em `CSV` e `XLSX`.
@@ -247,6 +247,16 @@ Protegidos por sessao:
 Protegido por token do agent:
 
 - `POST /checkin`: recebe dados do agent e cria ou atualiza o ativo.
+
+## Logica Do Check-In
+
+O endpoint `/checkin` identifica ativos nesta ordem:
+
+1. `serial`, quando informado.
+2. `mac_address`, quando o serial nao foi suficiente ou nao veio no payload.
+3. `hostname`, apenas como fallback quando nao houver serial/MAC e quando o hostname nao for ambiguo.
+
+Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409 Conflict` para evitar mesclar maquinas distintas. Se o payload nao trouxer nenhum dos tres identificadores, a API retorna `422`.
 
 ## Campos Coletados Pelo Agent
 

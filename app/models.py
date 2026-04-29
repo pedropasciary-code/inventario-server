@@ -8,13 +8,13 @@ class Asset(Base):
     __tablename__ = "assets"
 
     id = Column(Integer, primary_key=True, index=True)
-    hostname = Column(String, nullable=True)
+    hostname = Column(String, nullable=True, index=True)
     usuario = Column(String, nullable=True)
     cpu = Column(String, nullable=True)
     ram = Column(String, nullable=True)
     sistema = Column(String, nullable=True)
     ip = Column(String, nullable=True)
-    serial = Column(String, nullable=True)
+    serial = Column(String, nullable=True, index=True)
 
     fabricante = Column(String, nullable=True)
     modelo = Column(String, nullable=True)
@@ -22,7 +22,7 @@ class Asset(Base):
     bios_version = Column(String, nullable=True)
     arquitetura = Column(String, nullable=True)
     versao_windows = Column(String, nullable=True)
-    mac_address = Column(String, nullable=True)
+    mac_address = Column(String, nullable=True, index=True)
     disco_total_gb = Column(String, nullable=True)
     disco_livre_gb = Column(String, nullable=True)
     agent_version = Column(String, nullable=True)
