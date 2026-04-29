@@ -62,3 +62,15 @@ class AssetCheckin(Base):
     agent_version = Column(String, nullable=True)
     payload_json = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+
+class AuditEvent(Base):
+    # Registra eventos operacionais do painel/API para auditoria básica.
+    __tablename__ = "audit_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    username = Column(String, nullable=True, index=True)
+    ip_address = Column(String, nullable=True)
+    details_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)

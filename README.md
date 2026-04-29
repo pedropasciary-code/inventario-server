@@ -26,6 +26,7 @@ Fluxo de funcionamento:
 - Status real por ultima comunicacao: comunicando, atrasado ou inativo.
 - Detalhe do ativo com interfaces de rede coletadas pelo agent.
 - Histórico dos últimos check-ins no detalhe do ativo.
+- Auditoria basica de login, logout, exportacoes e check-ins rejeitados.
 - Exportacao em `CSV` e `XLSX` respeitando filtros, ordenacao e status.
 - Pagina de detalhes para cada ativo.
 - Agent com log rotativo local.
@@ -343,10 +344,21 @@ Antes de comparar ou salvar, a API normaliza `serial` e `mac_address` para reduz
 
 A cada `POST /checkin`, a API grava um snapshot em `asset_checkins` com os principais identificadores e o payload recebido. A pagina de detalhe do ativo exibe os 10 check-ins mais recentes para ajudar auditoria e suporte.
 
+## Auditoria Basica
+
+A tabela `audit_events` registra eventos relevantes da API para investigacao operacional:
+
+- `login_success` e `login_failed`
+- `logout`
+- `export_csv` e `export_xlsx`
+- `checkin_rejected`, incluindo rejeicoes por identidade ausente ou conflito de identidade
+
+Os detalhes adicionais ficam em `details_json`, junto com usuario quando houver sessao web e IP de origem da requisicao.
+
 ## Arquivos Principais
 
 - `app/main.py`: rotas da API, login, dashboard, exportacoes e check-in.
-- `app/models.py`: modelos `Asset` e `User`.
+- `app/models.py`: modelos `Asset`, `AssetCheckin`, `AuditEvent` e `User`.
 - `migrations/versions`: migrations Alembic do banco.
 - `app/schemas.py`: schemas Pydantic da API.
 - `app/auth.py`: hash e validacao de senha.

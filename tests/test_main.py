@@ -124,6 +124,38 @@ def test_checkin_rejects_conflicting_identity(client):
     assert conflict_response.status_code == 409
 
 
+def test_checkin_conflict_records_audit_event(client, db_session):
+    first = {
+        "hostname": "PC-01",
+        "serial": "SERIAL-01",
+        "mac_address": "AA-BB-CC-00-00-01",
+    }
+    second = {
+        "hostname": "PC-02",
+        "serial": "SERIAL-02",
+        "mac_address": "AA-BB-CC-00-00-02",
+    }
+
+    assert client.post("/checkin", json=first, headers=AGENT_HEADERS).status_code == 200
+    assert client.post("/checkin", json=second, headers=AGENT_HEADERS).status_code == 200
+
+    response = client.post(
+        "/checkin",
+        json={
+            "hostname": "PC-CONFLICT",
+            "serial": "SERIAL-01",
+            "mac_address": "AA-BB-CC-00-00-02",
+        },
+        headers=AGENT_HEADERS,
+    )
+
+    assert response.status_code == 409
+    event = db_session.query(models.AuditEvent).filter_by(event_type="checkin_rejected").one()
+    details = json.loads(event.details_json)
+    assert details["reason"] == "identity_conflict"
+    assert details["serial"] == "SERIAL-01"
+
+
 def test_login_requires_valid_csrf_token(client, admin_user):
     response = client.get("/login")
     assert response.status_code == 200
@@ -164,6 +196,28 @@ def test_login_rate_limit_blocks_repeated_failures(client, admin_user):
     )
 
     assert blocked_response.status_code == 429
+
+
+def test_login_success_and_failure_record_audit_events(client, db_session, admin_user):
+    csrf_token = extract_csrf_token(client.get("/login"))
+    failed_response = client.post(
+        "/login",
+        data={
+            "username": "admin",
+            "password": "wrong-password",
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=False,
+    )
+    assert failed_response.status_code == 401
+
+    success_response = login(client)
+    assert success_response.status_code == 303
+
+    events = db_session.query(models.AuditEvent).order_by(models.AuditEvent.id.asc()).all()
+    assert [event.event_type for event in events] == ["login_failed", "login_success"]
+    assert events[0].username == "admin"
+    assert events[1].username == "admin"
 
 
 def test_dashboard_paginates_and_shows_real_status(client, db_session, admin_user):
@@ -326,3 +380,35 @@ def test_csv_export_includes_status_and_formatted_dates(client, db_session, admi
     assert rows[0]["Hostname"] == "PC-INACTIVE"
     assert rows[0]["Status"] == "Inativo"
     assert "/" in rows[0]["Ultima Comunicacao"]
+
+
+def test_exports_and_logout_record_audit_events(client, db_session, admin_user):
+    db_session.add(
+        models.Asset(
+            hostname="PC-AUDIT",
+            serial="SERIAL-AUDIT",
+            mac_address="AA-BB-CC-00-30-01",
+            ultima_comunicacao=datetime.now(UTC),
+        )
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+    assert client.get("/export/csv?status=online&sort=hostname&direction=asc").status_code == 200
+    assert client.get("/export/xlsx?status=all&sort=hostname&direction=asc").status_code == 200
+
+    dashboard_response = client.get("/dashboard")
+    csrf_token = extract_csrf_token(dashboard_response)
+    logout_response = client.post(
+        "/logout",
+        data={"csrf_token": csrf_token},
+        follow_redirects=False,
+    )
+    assert logout_response.status_code == 303
+
+    events = db_session.query(models.AuditEvent).order_by(models.AuditEvent.id.asc()).all()
+    event_types = [event.event_type for event in events]
+    assert event_types == ["login_success", "export_csv", "export_xlsx", "logout"]
+    assert all(event.username == "admin" for event in events)
+    export_details = json.loads(events[1].details_json)
+    assert export_details["status"] == "online"

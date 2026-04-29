@@ -197,6 +197,23 @@ def get_client_ip(request: Request) -> str:
     return "unknown"
 
 
+def record_audit_event(
+    db: Session,
+    event_type: str,
+    request: Request,
+    username: str | None = None,
+    details: dict | None = None,
+):
+    event = models.AuditEvent(
+        event_type=event_type,
+        username=username,
+        ip_address=get_client_ip(request),
+        details_json=json.dumps(details or {}, ensure_ascii=False, default=str),
+    )
+    db.add(event)
+    db.commit()
+
+
 def login_rate_limit_key(request: Request, username: str) -> str:
     return f"{get_client_ip(request)}:{username.lower().strip()}"
 
@@ -523,6 +540,13 @@ def login(
     # Só permite login para usuário existente, ativo e com senha válida.
     if not user or not user.is_active or not verify_password(password, user.password_hash):
         register_failed_login(request, username)
+        record_audit_event(
+            db,
+            "login_failed",
+            request,
+            username=username,
+            details={"reason": "invalid_credentials"},
+        )
         return templates.TemplateResponse(
             request,
             "login.html",
@@ -535,6 +559,7 @@ def login(
 
     # Salva o usuário autenticado na sessão assinada para liberar acesso ao dashboard.
     clear_failed_logins(request, username)
+    record_audit_event(db, "login_success", request, username=user.username)
     request.session.clear()
     request.session["session_user"] = user.username
     request.session["csrf_token"] = secrets.token_urlsafe(32)
@@ -650,17 +675,43 @@ def dashboard(
     )
 
 @app.post("/checkin", response_model=schemas.AssetResponse, dependencies=[Depends(validate_agent_token)])
-def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
+def checkin(
+    request: Request,
+    asset: schemas.AssetCreate,
+    db: Session = Depends(get_db),
+):
     # Normaliza o payload e exige ao menos um identificador estável para o inventário.
     asset_data = normalize_asset_payload(asset)
 
     if not any(asset_data.get(field) for field in ("serial", "mac_address", "hostname")):
+        record_audit_event(
+            db,
+            "checkin_rejected",
+            request,
+            details={"reason": "missing_identity"}
+        )
         raise HTTPException(
             status_code=422,
             detail="Informe ao menos serial, MAC Address ou hostname para identificar o ativo"
         )
 
-    existing_asset = find_asset_by_identity(asset_data, db)
+    try:
+        existing_asset = find_asset_by_identity(asset_data, db)
+    except HTTPException as error:
+        if error.status_code == 409:
+            record_audit_event(
+                db,
+                "checkin_rejected",
+                request,
+                details={
+                    "reason": "identity_conflict",
+                    "detail": error.detail,
+                    "hostname": asset_data.get("hostname"),
+                    "serial": asset_data.get("serial"),
+                    "mac_address": asset_data.get("mac_address"),
+                }
+            )
+        raise
 
     if existing_asset:
         # Atualiza os dados do ativo já existente com a última coleta recebida do agent.
@@ -691,6 +742,13 @@ def export_csv(
     status = normalize_status_filter(status)
     sort = normalize_sort(sort)
     direction = normalize_direction(direction)
+    record_audit_event(
+        db,
+        "export_csv",
+        request,
+        username=session_user,
+        details={"q": q, "status": status, "sort": sort, "direction": direction}
+    )
     now = utc_now()
     query = apply_status_filter(build_asset_query(db, q), status, now)
     assets = apply_asset_sort(query, sort, direction).all()
@@ -784,8 +842,14 @@ def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db))
     )
 
 @app.post("/logout")
-def logout(request: Request, csrf_token: str = Form(...)):
+def logout(
+    request: Request,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
     validate_csrf_token(request, csrf_token)
+    session_user = get_session_user(request, db)
+    record_audit_event(db, "logout", request, username=session_user)
 
     # Encerra a sessão assinada e redireciona para a tela de login.
     request.session.clear()
@@ -810,6 +874,13 @@ def export_xlsx(
     status = normalize_status_filter(status)
     sort = normalize_sort(sort)
     direction = normalize_direction(direction)
+    record_audit_event(
+        db,
+        "export_xlsx",
+        request,
+        username=session_user,
+        details={"q": q, "status": status, "sort": sort, "direction": direction}
+    )
     now = utc_now()
     query = apply_status_filter(build_asset_query(db, q), status, now)
     assets = apply_asset_sort(query, sort, direction).all()
