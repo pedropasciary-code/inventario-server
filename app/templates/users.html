@@ -105,6 +105,15 @@
             align-items: center;
         }
 
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #2f505f;
+        }
+
         input[type="text"], input[type="password"] {
             flex: 1;
             min-width: 190px;
@@ -216,6 +225,10 @@
                 <input type="text" name="username" placeholder="Usuario" required>
                 <input type="password" name="password" placeholder="Senha" minlength="8" required>
                 <input type="password" name="password_confirmation" placeholder="Confirmar senha" minlength="8" required>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_admin">
+                    Admin
+                </label>
                 <button class="button" type="submit">Criar</button>
             </form>
         </div>
@@ -226,6 +239,7 @@
                     <tr>
                         <th>Usuario</th>
                         <th>Status</th>
+                        <th>Perfil</th>
                         <th>Criado em</th>
                         <th>Alterar senha</th>
                         <th>Acoes</th>
@@ -247,6 +261,13 @@
                             <span class="badge inactive">Inativo</span>
                             {% endif %}
                         </td>
+                        <td>
+                            {% if user.is_admin %}
+                            <span class="badge active">Admin</span>
+                            {% else %}
+                            <span class="badge">Comum</span>
+                            {% endif %}
+                        </td>
                         <td>{{ user.created_at|datetime_br }}</td>
                         <td>
                             <form class="password-form" method="post" action="/users/{{ user.id }}/password">
@@ -257,6 +278,7 @@
                             </form>
                         </td>
                         <td>
+                            <div class="row-actions">
                             <form method="post" action="/users/{{ user.id }}/toggle" style="margin:0;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 {% if user.is_active %}
@@ -265,6 +287,15 @@
                                 <button class="button" type="submit">Ativar</button>
                                 {% endif %}
                             </form>
+                            <form method="post" action="/users/{{ user.id }}/admin" style="margin:0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                {% if user.is_admin %}
+                                <button class="button" type="submit">Remover admin</button>
+                                {% else %}
+                                <button class="button" type="submit">Tornar admin</button>
+                                {% endif %}
+                            </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

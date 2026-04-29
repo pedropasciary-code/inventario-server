@@ -67,6 +67,7 @@ def admin_user(db_session):
         username="admin",
         password_hash=hash_password("strong-password"),
         is_active=True,
+        is_admin=True,
     )
     db_session.add(user)
     db_session.commit()

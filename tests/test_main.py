@@ -5,6 +5,7 @@ import re
 from datetime import UTC, datetime, timedelta
 
 from app import models
+from app.auth import hash_password
 
 
 AGENT_HEADERS = {"X-Agent-Token": "test-agent-token"}
@@ -421,6 +422,34 @@ def test_audit_page_requires_login(client):
     assert response.headers["location"] == "/login"
 
 
+def test_audit_page_requires_admin(client, db_session):
+    user = models.User(
+        username="operator",
+        password_hash=hash_password("operator-password"),
+        is_active=True,
+        is_admin=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    response = client.get("/login")
+    csrf_token = extract_csrf_token(response)
+    login_response = client.post(
+        "/login",
+        data={
+            "username": "operator",
+            "password": "operator-password",
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+
+    response = client.get("/audit")
+
+    assert response.status_code == 403
+
+
 def test_audit_page_filters_events(client, db_session, admin_user):
     db_session.add_all(
         [
@@ -489,6 +518,34 @@ def test_users_page_requires_login(client):
 
     assert response.status_code == 303
     assert response.headers["location"] == "/login"
+
+
+def test_users_page_requires_admin(client, db_session):
+    user = models.User(
+        username="operator",
+        password_hash=hash_password("operator-password"),
+        is_active=True,
+        is_admin=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    response = client.get("/login")
+    csrf_token = extract_csrf_token(response)
+    login_response = client.post(
+        "/login",
+        data={
+            "username": "operator",
+            "password": "operator-password",
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+
+    response = client.get("/users")
+
+    assert response.status_code == 403
 
 
 def test_users_page_creates_user_and_records_audit(client, db_session, admin_user):
@@ -587,3 +644,55 @@ def test_users_page_toggles_user_and_changes_password(client, db_session, admin_
         for event in db_session.query(models.AuditEvent).order_by(models.AuditEvent.id.asc()).all()
     ]
     assert event_types == ["login_success", "user_disabled", "password_changed"]
+
+
+def test_users_page_promotes_and_demotes_admin(client, db_session, admin_user):
+    operator = models.User(
+        username="operator",
+        password_hash="old-hash",
+        is_active=True,
+        is_admin=False,
+    )
+    db_session.add(operator)
+    db_session.commit()
+    db_session.refresh(operator)
+
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    promote_response = client.post(
+        f"/users/{operator.id}/admin",
+        data={"csrf_token": csrf_token},
+    )
+    assert promote_response.status_code == 200
+    db_session.refresh(operator)
+    assert operator.is_admin is True
+
+    demote_response = client.post(
+        f"/users/{operator.id}/admin",
+        data={"csrf_token": csrf_token},
+    )
+    assert demote_response.status_code == 200
+    db_session.refresh(operator)
+    assert operator.is_admin is False
+
+    event_types = [
+        event.event_type
+        for event in db_session.query(models.AuditEvent).order_by(models.AuditEvent.id.asc()).all()
+    ]
+    assert event_types == ["login_success", "user_promoted", "user_demoted"]
+
+
+def test_users_page_prevents_demoting_current_admin(client, db_session, admin_user):
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    response = client.post(
+        f"/users/{admin_user.id}/admin",
+        data={"csrf_token": csrf_token},
+    )
+
+    assert response.status_code == 200
+    assert "Voce nao pode remover o proprio acesso admin." in response.text
+    db_session.refresh(admin_user)
+    assert admin_user.is_admin is True

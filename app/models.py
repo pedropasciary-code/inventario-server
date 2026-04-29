@@ -44,6 +44,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 

@@ -110,7 +110,7 @@ def validate_agent_token(x_agent_token: str = Header(default=None)):
         raise HTTPException(status_code=401, detail="Token do agent inválido")
 
 
-def get_session_user(request: Request, db: Session) -> str | None:
+def get_session_user_record(request: Request, db: Session) -> models.User | None:
     # Lê a sessão assinada e confirma no banco se o usuário ainda existe e está ativo.
     username = request.session.get("session_user")
 
@@ -122,6 +122,27 @@ def get_session_user(request: Request, db: Session) -> str | None:
     if not user or not user.is_active:
         request.session.clear()
         return None
+
+    return user
+
+
+def get_session_user(request: Request, db: Session) -> str | None:
+    user = get_session_user_record(request, db)
+
+    if not user:
+        return None
+
+    return user.username
+
+
+def get_admin_session_user(request: Request, db: Session) -> str | None:
+    user = get_session_user_record(request, db)
+
+    if not user:
+        return None
+
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
 
     return user.username
 
@@ -194,6 +215,8 @@ AUDIT_EVENT_OPTIONS = {
     "user_enabled": "Usuario ativado",
     "user_disabled": "Usuario desativado",
     "password_changed": "Senha alterada",
+    "user_promoted": "Usuario promovido",
+    "user_demoted": "Usuario rebaixado",
 }
 
 
@@ -684,10 +707,12 @@ def dashboard(
     db: Session = Depends(get_db)
 ):
     # Usa a sessão assinada para impedir acesso ao painel sem autenticação.
-    session_user = get_session_user(request, db)
+    current_user = get_session_user_record(request, db)
 
-    if not session_user:
+    if not current_user:
         return RedirectResponse(url="/login", status_code=303)
+
+    session_user = current_user.username
 
     status = normalize_status_filter(status)
     sort = normalize_sort(sort)
@@ -752,6 +777,7 @@ def dashboard(
         "dashboard.html",
         {
             "session_user": session_user,
+            "session_is_admin": current_user.is_admin,
             "assets": assets,
             "q": q,
             "status": status,
@@ -782,7 +808,7 @@ def dashboard(
 
 @app.get("/users", response_class=HTMLResponse)
 def users_page(request: Request, db: Session = Depends(get_db)):
-    session_user = get_session_user(request, db)
+    session_user = get_admin_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -796,11 +822,12 @@ def create_panel_user(
     username: str = Form(...),
     password: str = Form(...),
     password_confirmation: str = Form(...),
+    is_admin: str | None = Form(default=None),
     csrf_token: str = Form(...),
     db: Session = Depends(get_db),
 ):
     validate_csrf_token(request, csrf_token)
-    session_user = get_session_user(request, db)
+    session_user = get_admin_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -820,6 +847,7 @@ def create_panel_user(
             username=username,
             password_hash=hash_password(password),
             is_active=True,
+            is_admin=is_admin == "on",
         )
         db.add(user)
         db.commit()
@@ -835,7 +863,7 @@ def create_panel_user(
         "user_created",
         request,
         username=session_user,
-        details={"target_username": username}
+        details={"target_username": username, "is_admin": user.is_admin}
     )
     return render_users_page(request, db, session_user, message="Usuario criado com sucesso.")
 
@@ -848,7 +876,7 @@ def toggle_panel_user(
     db: Session = Depends(get_db),
 ):
     validate_csrf_token(request, csrf_token)
-    session_user = get_session_user(request, db)
+    session_user = get_admin_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -891,7 +919,7 @@ def change_panel_user_password(
     db: Session = Depends(get_db),
 ):
     validate_csrf_token(request, csrf_token)
-    session_user = get_session_user(request, db)
+    session_user = get_admin_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -919,6 +947,47 @@ def change_panel_user_password(
     return render_users_page(request, db, session_user, message="Senha alterada com sucesso.")
 
 
+@app.post("/users/{user_id}/admin", response_class=HTMLResponse)
+def toggle_panel_user_admin(
+    user_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request, csrf_token)
+    session_user = get_admin_session_user(request, db)
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    if user.username == session_user and user.is_admin:
+        return render_users_page(
+            request,
+            db,
+            session_user,
+            error="Voce nao pode remover o proprio acesso admin.",
+        )
+
+    user.is_admin = not user.is_admin
+    db.commit()
+
+    event_type = "user_promoted" if user.is_admin else "user_demoted"
+    record_audit_event(
+        db,
+        event_type,
+        request,
+        username=session_user,
+        details={"target_username": user.username}
+    )
+    message = "Usuario promovido a admin." if user.is_admin else "Usuario rebaixado para comum."
+    return render_users_page(request, db, session_user, message=message)
+
+
 @app.get("/audit", response_class=HTMLResponse)
 def audit_events(
     request: Request,
@@ -930,7 +999,7 @@ def audit_events(
     per_page: int = DASHBOARD_DEFAULT_PAGE_SIZE,
     db: Session = Depends(get_db),
 ):
-    session_user = get_session_user(request, db)
+    session_user = get_admin_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
@@ -991,7 +1060,7 @@ def export_audit_csv(
     date_to: str | None = None,
     db: Session = Depends(get_db),
 ):
-    session_user = get_session_user(request, db)
+    session_user = get_admin_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)

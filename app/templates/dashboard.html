@@ -269,8 +269,10 @@
             </div>
 
             <div class="actions">
+                {% if session_is_admin %}
                 <a class="button" href="/users">Usuarios</a>
                 <a class="button" href="/audit">Auditoria</a>
+                {% endif %}
                 <a class="button" href="/export/csv?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Exportar CSV</a>
                 <a class="button" href="/export/xlsx?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Exportar Excel</a>
                 <form method="post" action="/logout" style="margin:0;">

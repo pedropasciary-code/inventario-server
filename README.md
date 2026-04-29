@@ -166,10 +166,10 @@ python create_user.py
 Tambem e possivel informar usuario por argumento e senha por variavel de ambiente:
 
 ```bash
-INVENTARIO_ADMIN_PASSWORD="senha-forte-aqui" python create_user.py --username admin
+INVENTARIO_ADMIN_PASSWORD="senha-forte-aqui" python create_user.py --username admin --admin
 ```
 
-A senha precisa ter pelo menos 8 caracteres. O script nao imprime a senha criada.
+A senha precisa ter pelo menos 8 caracteres. Use `--admin` para criar um usuario com permissao de administracao. O script nao imprime a senha criada.
 
 ## Configurando O Agent
 
@@ -285,16 +285,20 @@ Publicos:
 Protegidos por sessao:
 
 - `GET /dashboard`: lista, filtra, ordena e pagina ativos.
+- `GET /assets/{asset_id}`: exibe detalhes de um ativo.
+- `GET /export/csv`: exporta o inventario em CSV.
+- `GET /export/xlsx`: exporta o inventario em Excel.
+- `POST /logout`: encerra a sessao.
+
+Protegidos por sessao admin:
+
 - `GET /users`: lista e gerencia usuarios do painel.
 - `POST /users`: cria usuario do painel.
 - `POST /users/{user_id}/toggle`: ativa ou desativa usuario do painel.
 - `POST /users/{user_id}/password`: troca senha de usuario do painel.
-- `GET /assets/{asset_id}`: exibe detalhes de um ativo.
-- `GET /export/csv`: exporta o inventario em CSV.
-- `GET /export/xlsx`: exporta o inventario em Excel.
+- `POST /users/{user_id}/admin`: promove ou rebaixa usuario admin.
 - `GET /audit`: lista eventos de auditoria com filtros e paginacao.
 - `GET /audit/export/csv`: exporta eventos de auditoria filtrados em CSV.
-- `POST /logout`: encerra a sessao.
 
 Protegido por token do agent:
 
@@ -361,6 +365,7 @@ A tabela `audit_events` registra eventos relevantes da API para investigacao ope
 - `export_csv` e `export_xlsx`
 - `checkin_rejected`, incluindo rejeicoes por identidade ausente ou conflito de identidade
 - `user_created`, `user_enabled`, `user_disabled` e `password_changed`
+- `user_promoted` e `user_demoted`
 
 Os detalhes adicionais ficam em `details_json`, junto com usuario quando houver sessao web e IP de origem da requisicao.
 
@@ -368,7 +373,7 @@ A tela `/audit` permite consultar os eventos registrados com filtros por tipo, u
 
 ## Gestao De Usuarios
 
-A tela `/users` permite criar usuarios, ativar/desativar acessos e alterar senhas pelo painel. A aplicacao impede desativar o proprio usuario logado para reduzir risco de bloqueio acidental.
+A tela `/users` permite criar usuarios, ativar/desativar acessos, alterar senhas e promover/rebaixar administradores. Apenas usuarios admin acessam `/users` e `/audit`. A aplicacao impede desativar o proprio usuario logado e remover o proprio acesso admin para reduzir risco de bloqueio acidental.
 
 ## Arquivos Principais
 

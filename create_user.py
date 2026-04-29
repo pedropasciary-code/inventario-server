@@ -12,6 +12,7 @@ def get_credentials():
     parser = argparse.ArgumentParser(description="Cria um usuário do painel de inventário.")
     parser.add_argument("--username", default=os.getenv("INVENTARIO_ADMIN_USER"))
     parser.add_argument("--password", default=os.getenv("INVENTARIO_ADMIN_PASSWORD"))
+    parser.add_argument("--admin", action="store_true", help="Cria o usuario com permissao de admin.")
     args = parser.parse_args()
 
     username = args.username or input("Usuário: ").strip()
@@ -30,10 +31,10 @@ def get_credentials():
     if len(password) < 8:
         raise ValueError("A senha deve ter pelo menos 8 caracteres.")
 
-    return username, password
+    return username, password, args.admin
 
 
-def create_user(username: str, password: str):
+def create_user(username: str, password: str, is_admin: bool = False):
     # Abre uma sessão direta no banco para executar o cadastro inicial manualmente.
     db = SessionLocal()
 
@@ -49,7 +50,8 @@ def create_user(username: str, password: str):
         user = User(
             username=username,
             password_hash=hash_password(password),
-            is_active=True
+            is_active=True,
+            is_admin=is_admin,
         )
         db.add(user)
         db.commit()
@@ -62,5 +64,5 @@ def create_user(username: str, password: str):
 
 
 if __name__ == "__main__":
-    username, password = get_credentials()
-    create_user(username, password)
+    username, password, is_admin = get_credentials()
+    create_user(username, password, is_admin)
