@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDP SYSTEM - Usuarios</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f8f8;
+            color: #2f505f;
+        }
+
+        .layout {
+            padding: 24px;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2f505f, #4c8c9c);
+            color: white;
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-logo {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+            background: white;
+            border-radius: 14px;
+            padding: 6px;
+        }
+
+        .header h1 {
+            margin: 0 0 6px;
+            font-size: 30px;
+        }
+
+        .header p {
+            margin: 0;
+            color: #dceaea;
+        }
+
+        .actions, .row-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        a.button, button.button {
+            text-decoration: none;
+            padding: 10px 14px;
+            background: white;
+            color: #2f505f;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        a.button:hover, button.button:hover {
+            background: #adc7c7;
+        }
+
+        .panel, .table-box, .notice {
+            background: white;
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
+            border: 1px solid #e4eeee;
+        }
+
+        .panel {
+            margin-bottom: 24px;
+        }
+
+        .panel h2 {
+            margin: 0 0 16px;
+            font-size: 20px;
+        }
+
+        .user-form, .password-form {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        input[type="text"], input[type="password"] {
+            flex: 1;
+            min-width: 190px;
+            padding: 12px 14px;
+            border: 1px solid #adc7c7;
+            border-radius: 12px;
+            font-size: 14px;
+            background: #fbfdfd;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #4c8c9c;
+            box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.12);
+        }
+
+        .table-box {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 920px;
+        }
+
+        th, td {
+            padding: 14px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e6eeee;
+            font-size: 14px;
+            vertical-align: top;
+        }
+
+        th {
+            color: #4f676d;
+            background: #f6fbfb;
+        }
+
+        tr:hover {
+            background: #f8fcfc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge.active {
+            background: #dff0ec;
+            color: #1f6f57;
+        }
+
+        .badge.inactive {
+            background: #fde8e8;
+            color: #991b1b;
+        }
+
+        .notice {
+            margin-bottom: 24px;
+            color: #1f6f57;
+        }
+
+        .notice.error {
+            color: #991b1b;
+        }
+
+        .muted {
+            color: #668086;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <div class="header">
+            <div class="header-left">
+                <img class="header-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+                <div>
+                    <h1>Usuarios</h1>
+                    <p>Gestao de acesso ao painel - Usuario: {{ session_user }}</p>
+                </div>
+            </div>
+
+            <div class="actions">
+                <a class="button" href="/dashboard">Dashboard</a>
+                <a class="button" href="/audit">Auditoria</a>
+                <form method="post" action="/logout" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="button" type="submit">Sair</button>
+                </form>
+            </div>
+        </div>
+
+        {% if message %}
+        <div class="notice">{{ message }}</div>
+        {% endif %}
+
+        {% if error %}
+        <div class="notice error">{{ error }}</div>
+        {% endif %}
+
+        <div class="panel">
+            <h2>Novo usuario</h2>
+            <form class="user-form" method="post" action="/users">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="text" name="username" placeholder="Usuario" required>
+                <input type="password" name="password" placeholder="Senha" minlength="8" required>
+                <input type="password" name="password_confirmation" placeholder="Confirmar senha" minlength="8" required>
+                <button class="button" type="submit">Criar</button>
+            </form>
+        </div>
+
+        <div class="table-box">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Status</th>
+                        <th>Criado em</th>
+                        <th>Alterar senha</th>
+                        <th>Acoes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>
+                            {{ user.username }}
+                            {% if user.username == session_user %}
+                            <span class="muted">(voce)</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="badge active">Ativo</span>
+                            {% else %}
+                            <span class="badge inactive">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.created_at|datetime_br }}</td>
+                        <td>
+                            <form class="password-form" method="post" action="/users/{{ user.id }}/password">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="password" name="password" placeholder="Nova senha" minlength="8" required>
+                                <input type="password" name="password_confirmation" placeholder="Confirmar" minlength="8" required>
+                                <button class="button" type="submit">Salvar</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="post" action="/users/{{ user.id }}/toggle" style="margin:0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                {% if user.is_active %}
+                                <button class="button" type="submit">Desativar</button>
+                                {% else %}
+                                <button class="button" type="submit">Ativar</button>
+                                {% endif %}
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

@@ -482,3 +482,108 @@ def test_audit_csv_export_respects_filters(client, db_session, admin_user):
     assert len(rows) == 1
     assert rows[0]["Tipo"] == "login_failed"
     assert rows[0]["Usuario"] == "admin"
+
+
+def test_users_page_requires_login(client):
+    response = client.get("/users", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"
+
+
+def test_users_page_creates_user_and_records_audit(client, db_session, admin_user):
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    response = client.post(
+        "/users",
+        data={
+            "username": "operator",
+            "password": "operator-password",
+            "password_confirmation": "operator-password",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Usuario criado com sucesso." in response.text
+    user = db_session.query(models.User).filter_by(username="operator").one()
+    assert user.is_active is True
+    event = db_session.query(models.AuditEvent).filter_by(event_type="user_created").one()
+    details = json.loads(event.details_json)
+    assert event.username == "admin"
+    assert details["target_username"] == "operator"
+
+
+def test_users_page_rejects_duplicate_user(client, db_session, admin_user):
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    response = client.post(
+        "/users",
+        data={
+            "username": "admin",
+            "password": "another-password",
+            "password_confirmation": "another-password",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 200
+    assert "Usuario ja existe." in response.text
+    assert db_session.query(models.User).count() == 1
+
+
+def test_users_page_prevents_disabling_current_user(client, db_session, admin_user):
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    response = client.post(
+        f"/users/{admin_user.id}/toggle",
+        data={"csrf_token": csrf_token},
+    )
+
+    assert response.status_code == 200
+    assert "Voce nao pode desativar o proprio usuario logado." in response.text
+    db_session.refresh(admin_user)
+    assert admin_user.is_active is True
+
+
+def test_users_page_toggles_user_and_changes_password(client, db_session, admin_user):
+    operator = models.User(
+        username="operator",
+        password_hash="old-hash",
+        is_active=True,
+    )
+    db_session.add(operator)
+    db_session.commit()
+    db_session.refresh(operator)
+
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    disable_response = client.post(
+        f"/users/{operator.id}/toggle",
+        data={"csrf_token": csrf_token},
+    )
+    assert disable_response.status_code == 200
+    db_session.refresh(operator)
+    assert operator.is_active is False
+
+    password_response = client.post(
+        f"/users/{operator.id}/password",
+        data={
+            "password": "new-operator-password",
+            "password_confirmation": "new-operator-password",
+            "csrf_token": csrf_token,
+        },
+    )
+    assert password_response.status_code == 200
+    db_session.refresh(operator)
+    assert operator.password_hash != "old-hash"
+
+    event_types = [
+        event.event_type
+        for event in db_session.query(models.AuditEvent).order_by(models.AuditEvent.id.asc()).all()
+    ]
+    assert event_types == ["login_success", "user_disabled", "password_changed"]

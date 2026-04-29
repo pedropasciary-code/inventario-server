@@ -21,6 +21,7 @@ Fluxo de funcionamento:
 
 - Cadastro e atualizacao automatica de ativos por serial, MAC Address ou hostname.
 - Painel web com login por usuario e senha.
+- Gestao de usuarios pelo painel, com criacao, ativacao/desativacao e troca de senha.
 - Busca por hostname, usuario, serial, fabricante, modelo e IP.
 - Dashboard com paginacao, filtro por status e ordenacao por colunas principais.
 - Status real por ultima comunicacao: comunicando, atrasado ou inativo.
@@ -284,6 +285,10 @@ Publicos:
 Protegidos por sessao:
 
 - `GET /dashboard`: lista, filtra, ordena e pagina ativos.
+- `GET /users`: lista e gerencia usuarios do painel.
+- `POST /users`: cria usuario do painel.
+- `POST /users/{user_id}/toggle`: ativa ou desativa usuario do painel.
+- `POST /users/{user_id}/password`: troca senha de usuario do painel.
 - `GET /assets/{asset_id}`: exibe detalhes de um ativo.
 - `GET /export/csv`: exporta o inventario em CSV.
 - `GET /export/xlsx`: exporta o inventario em Excel.
@@ -355,10 +360,15 @@ A tabela `audit_events` registra eventos relevantes da API para investigacao ope
 - `logout`
 - `export_csv` e `export_xlsx`
 - `checkin_rejected`, incluindo rejeicoes por identidade ausente ou conflito de identidade
+- `user_created`, `user_enabled`, `user_disabled` e `password_changed`
 
 Os detalhes adicionais ficam em `details_json`, junto com usuario quando houver sessao web e IP de origem da requisicao.
 
 A tela `/audit` permite consultar os eventos registrados com filtros por tipo, usuario e intervalo de datas. A exportacao `/audit/export/csv` aplica os mesmos filtros da tela.
+
+## Gestao De Usuarios
+
+A tela `/users` permite criar usuarios, ativar/desativar acessos e alterar senhas pelo painel. A aplicacao impede desativar o proprio usuario logado para reduzir risco de bloqueio acidental.
 
 ## Arquivos Principais
 

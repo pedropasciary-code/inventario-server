@@ -19,7 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .database import SessionLocal
 from .config import AGENT_TOKEN, SECRET_KEY, SESSION_COOKIE_SECURE, DISPLAY_TIMEZONE
-from .auth import verify_password
+from .auth import hash_password, verify_password
 from . import models, schemas
 
 # Instancia a API principal e configura onde o FastAPI buscará os templates HTML.
@@ -190,6 +190,10 @@ AUDIT_EVENT_OPTIONS = {
     "export_csv": "Exportacao CSV",
     "export_xlsx": "Exportacao Excel",
     "checkin_rejected": "Check-in rejeitado",
+    "user_created": "Usuario criado",
+    "user_enabled": "Usuario ativado",
+    "user_disabled": "Usuario desativado",
+    "password_changed": "Senha alterada",
 }
 
 
@@ -343,6 +347,40 @@ def build_audit_query(
         query = query.filter(models.AuditEvent.created_at < end_date + timedelta(days=1))
 
     return query
+
+
+def normalize_username(username: str | None) -> str:
+    return (username or "").strip()
+
+
+def validate_password_fields(password: str, password_confirmation: str):
+    if len(password) < 8:
+        raise ValueError("A senha deve ter pelo menos 8 caracteres.")
+
+    if password != password_confirmation:
+        raise ValueError("As senhas informadas nao conferem.")
+
+
+def render_users_page(
+    request: Request,
+    db: Session,
+    session_user: str,
+    message: str | None = None,
+    error: str | None = None,
+):
+    users = db.query(models.User).order_by(asc(models.User.username)).all()
+
+    return templates.TemplateResponse(
+        request,
+        "users.html",
+        {
+            "session_user": session_user,
+            "users": users,
+            "message": message,
+            "error": error,
+            "csrf_token": get_csrf_token(request),
+        }
+    )
 
 
 def normalize_mac_address(mac_address: str | None) -> str | None:
@@ -740,6 +778,145 @@ def dashboard(
             "csrf_token": get_csrf_token(request)
         }
     )
+
+
+@app.get("/users", response_class=HTMLResponse)
+def users_page(request: Request, db: Session = Depends(get_db)):
+    session_user = get_session_user(request, db)
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    return render_users_page(request, db, session_user)
+
+
+@app.post("/users", response_class=HTMLResponse)
+def create_panel_user(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+    password_confirmation: str = Form(...),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request, csrf_token)
+    session_user = get_session_user(request, db)
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    username = normalize_username(username)
+
+    try:
+        if not username:
+            raise ValueError("Usuario nao pode ficar vazio.")
+
+        validate_password_fields(password, password_confirmation)
+
+        if db.query(models.User).filter(models.User.username == username).first():
+            raise ValueError("Usuario ja existe.")
+
+        user = models.User(
+            username=username,
+            password_hash=hash_password(password),
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+    except ValueError as error:
+        db.rollback()
+        return render_users_page(request, db, session_user, error=str(error))
+    except IntegrityError:
+        db.rollback()
+        return render_users_page(request, db, session_user, error="Usuario ja existe.")
+
+    record_audit_event(
+        db,
+        "user_created",
+        request,
+        username=session_user,
+        details={"target_username": username}
+    )
+    return render_users_page(request, db, session_user, message="Usuario criado com sucesso.")
+
+
+@app.post("/users/{user_id}/toggle", response_class=HTMLResponse)
+def toggle_panel_user(
+    user_id: int,
+    request: Request,
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request, csrf_token)
+    session_user = get_session_user(request, db)
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    if user.username == session_user and user.is_active:
+        return render_users_page(
+            request,
+            db,
+            session_user,
+            error="Voce nao pode desativar o proprio usuario logado.",
+        )
+
+    user.is_active = not user.is_active
+    db.commit()
+
+    event_type = "user_enabled" if user.is_active else "user_disabled"
+    record_audit_event(
+        db,
+        event_type,
+        request,
+        username=session_user,
+        details={"target_username": user.username}
+    )
+    message = "Usuario ativado com sucesso." if user.is_active else "Usuario desativado com sucesso."
+    return render_users_page(request, db, session_user, message=message)
+
+
+@app.post("/users/{user_id}/password", response_class=HTMLResponse)
+def change_panel_user_password(
+    user_id: int,
+    request: Request,
+    password: str = Form(...),
+    password_confirmation: str = Form(...),
+    csrf_token: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    validate_csrf_token(request, csrf_token)
+    session_user = get_session_user(request, db)
+
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
+
+    try:
+        validate_password_fields(password, password_confirmation)
+    except ValueError as error:
+        return render_users_page(request, db, session_user, error=str(error))
+
+    user.password_hash = hash_password(password)
+    db.commit()
+    record_audit_event(
+        db,
+        "password_changed",
+        request,
+        username=session_user,
+        details={"target_username": user.username}
+    )
+
+    return render_users_page(request, db, session_user, message="Senha alterada com sucesso.")
 
 
 @app.get("/audit", response_class=HTMLResponse)
