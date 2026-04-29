@@ -58,6 +58,7 @@ inventario-server/
 ├── create_user.py
 ├── install_agent.ps1
 ├── rdp-agent.spec
+├── requirements-agent.txt
 ├── requirements.txt
 └── README.md
 ```
@@ -65,10 +66,12 @@ inventario-server/
 ## Tecnologias
 
 - Python 3
+- Alembic
 - FastAPI
 - SQLAlchemy
 - Jinja2
 - OpenPyXL
+- Psycopg
 - Requests
 - Psutil
 - WMI
@@ -91,6 +94,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+O arquivo `requirements.txt` contem apenas as dependencias da API e das tarefas de banco/exportacao. As dependencias do agent Windows ficam em `requirements-agent.txt`.
+
 Em Linux/macOS:
 
 ```bash
@@ -98,6 +103,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+Em servidores Linux/macOS, nao instale `requirements-agent.txt`, pois ele inclui dependencias especificas de Windows.
 
 ## Variaveis De Ambiente
 
@@ -117,7 +124,13 @@ SESSION_COOKIE_SECURE=false
 
 ## Executando A API
 
-Com o ambiente ativo e o `.env` configurado:
+Com o ambiente ativo e o `.env` configurado, aplique as migrations do banco:
+
+```bash
+alembic upgrade head
+```
+
+Depois inicie a API:
 
 ```bash
 uvicorn app.main:app --reload
@@ -129,7 +142,7 @@ URLs principais:
 - Login: `http://127.0.0.1:8000/login`
 - Dashboard: `http://127.0.0.1:8000/dashboard`
 
-As tabelas sao criadas automaticamente na inicializacao da API com `Base.metadata.create_all(...)`.
+As tabelas e indices sao gerenciados pelo Alembic. A aplicacao nao cria mais tabelas automaticamente no startup.
 
 ## Criando O Usuario Inicial
 
@@ -178,6 +191,9 @@ O valor de `agent_token` precisa ser igual ao `AGENT_TOKEN` configurado no `.env
 No host Windows que sera inventariado:
 
 ```powershell
+python -m venv .venv-agent
+.\.venv-agent\Scripts\Activate.ps1
+pip install -r requirements-agent.txt
 python agent\agent.py
 ```
 
@@ -223,6 +239,7 @@ O arquivo `rdp-agent.spec` define o build do executavel com PyInstaller.
 Exemplo:
 
 ```powershell
+pip install -r requirements-agent.txt
 pyinstaller rdp-agent.spec
 ```
 
@@ -247,6 +264,20 @@ Protegidos por sessao:
 Protegido por token do agent:
 
 - `POST /checkin`: recebe dados do agent e cria ou atualiza o ativo.
+
+## Migrations Do Banco
+
+As migrations ficam em `migrations/versions`.
+
+Comandos uteis:
+
+```bash
+alembic upgrade head
+alembic current
+alembic history
+```
+
+A migration inicial cria as tabelas `assets` e `users` quando elas ainda nao existem. Em bancos que ja tinham tabelas criadas pela versao antiga da aplicacao, ela apenas garante os indices esperados e registra a versao do Alembic.
 
 ## Logica Do Check-In
 
@@ -283,24 +314,28 @@ Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409
 
 - `app/main.py`: rotas da API, login, dashboard, exportacoes e check-in.
 - `app/models.py`: modelos `Asset` e `User`.
+- `migrations/versions`: migrations Alembic do banco.
 - `app/schemas.py`: schemas Pydantic da API.
 - `app/auth.py`: hash e validacao de senha.
 - `agent/collector.py`: coleta dos dados da maquina.
 - `agent/sender.py`: envio HTTP para a API.
 - `agent/agent.py`: ponto de entrada do agent, log e reenvio de payloads falhos.
+- `requirements.txt`: dependencias da API e das migrations.
+- `requirements-agent.txt`: dependencias do agent Windows e do empacotamento.
 - `install_agent.ps1`: instalador local a partir da raiz do projeto.
 - `agent-deploy/install_agent.ps1`: instalador do pacote distribuivel.
 
 ## Observacoes Importantes
 
 - O `agent` foi implementado para Windows.
+- Use `requirements.txt` para instalar a API e `requirements-agent.txt` para executar ou empacotar o agent.
 - A autenticacao do painel usa sessao assinada com `SECRET_KEY`.
+- Rode `alembic upgrade head` antes de iniciar a API em um banco novo.
 - O script `create_user.py` cria usuario por prompt, argumento ou variaveis de ambiente.
 - Nao publique tokens reais em repositorios compartilhados.
 - Arquivos `config.json`, logs, executaveis e pastas `build/`/`dist/` sao gerados/localizados por ambiente e ficam fora do Git.
 
 ## Proximos Passos Sugeridos
 
-- adicionar protecao CSRF e limite de tentativas no login
-- separar dependencias da API e do agent em arquivos distintos
 - adicionar testes automatizados para rotas principais e coleta do agent
+- adicionar paginacao e status real por ultima comunicacao no dashboard

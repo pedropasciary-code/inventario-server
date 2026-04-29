@@ -1,18 +1,21 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import csv
+import hmac
 import io
+import secrets
 
 from fastapi import FastAPI, Depends, Header, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from .database import Base, engine, SessionLocal
+from .database import SessionLocal
 from .config import AGENT_TOKEN, SECRET_KEY, SESSION_COOKIE_SECURE
 from .auth import verify_password
 from . import models, schemas
@@ -30,9 +33,6 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
-# Garante a criação das tabelas na inicialização caso ainda não existam no banco.
-Base.metadata.create_all(bind=engine)
-
 
 def get_db():
     # Abre uma sessão por requisição e sempre fecha a conexão ao final do uso.
@@ -44,7 +44,7 @@ def get_db():
 
 
 def validate_agent_token(x_agent_token: str = Header(default=None)):
-    if x_agent_token != AGENT_TOKEN:
+    if not x_agent_token or not hmac.compare_digest(x_agent_token, AGENT_TOKEN):
         raise HTTPException(status_code=401, detail="Token do agent inválido")
 
 
@@ -83,6 +83,81 @@ ASSET_TEXT_FIELDS = [
     "disco_livre_gb",
     "agent_version",
 ]
+
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5
+LOGIN_RATE_LIMIT_WINDOW = timedelta(minutes=15)
+login_attempts: dict[str, list[datetime]] = {}
+
+
+def get_csrf_token(request: Request) -> str:
+    token = request.session.get("csrf_token")
+
+    if not token:
+        token = secrets.token_urlsafe(32)
+        request.session["csrf_token"] = token
+
+    return token
+
+
+def validate_csrf_token(request: Request, csrf_token: str | None):
+    session_token = request.session.get("csrf_token")
+
+    if (
+        not session_token
+        or not csrf_token
+        or not hmac.compare_digest(session_token, csrf_token)
+    ):
+        raise HTTPException(status_code=403, detail="Token CSRF inválido")
+
+
+def get_client_ip(request: Request) -> str:
+    if request.client:
+        return request.client.host
+
+    return "unknown"
+
+
+def login_rate_limit_key(request: Request, username: str) -> str:
+    return f"{get_client_ip(request)}:{username.lower().strip()}"
+
+
+def prune_login_attempts(key: str, now: datetime):
+    window_start = now - LOGIN_RATE_LIMIT_WINDOW
+    attempts = [
+        attempt
+        for attempt in login_attempts.get(key, [])
+        if attempt >= window_start
+    ]
+
+    if attempts:
+        login_attempts[key] = attempts
+    else:
+        login_attempts.pop(key, None)
+
+    return attempts
+
+
+def enforce_login_rate_limit(request: Request, username: str):
+    key = login_rate_limit_key(request, username)
+    attempts = prune_login_attempts(key, datetime.utcnow())
+
+    if len(attempts) >= LOGIN_RATE_LIMIT_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas tentativas de login. Tente novamente mais tarde."
+        )
+
+
+def register_failed_login(request: Request, username: str):
+    key = login_rate_limit_key(request, username)
+    now = datetime.utcnow()
+    attempts = prune_login_attempts(key, now)
+    attempts.append(now)
+    login_attempts[key] = attempts
+
+
+def clear_failed_logins(request: Request, username: str):
+    login_attempts.pop(login_rate_limit_key(request, username), None)
 
 
 def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
@@ -154,6 +229,28 @@ def apply_asset_payload(asset_record: models.Asset, asset_data: dict):
     asset_record.ultima_comunicacao = datetime.utcnow()
 
 
+def commit_asset_checkin(asset_record: models.Asset, asset_data: dict, db: Session):
+    try:
+        db.commit()
+        db.refresh(asset_record)
+        return asset_record
+    except IntegrityError as error:
+        db.rollback()
+
+        conflicting_asset = find_asset_by_identity(asset_data, db)
+
+        if not conflicting_asset:
+            raise HTTPException(
+                status_code=409,
+                detail="Ativo duplicado por serial ou MAC Address"
+            ) from error
+
+        apply_asset_payload(conflicting_asset, asset_data)
+        db.commit()
+        db.refresh(conflicting_asset)
+        return conflicting_asset
+
+
 @app.get("/")
 def home():
     # Endpoint simples de health-check para validar se a API está no ar.
@@ -166,7 +263,7 @@ def login_page(request: Request):
     return templates.TemplateResponse(
         request,
         "login.html",
-        {"error": None}
+        {"error": None, "csrf_token": get_csrf_token(request)}
     )
 
 
@@ -175,23 +272,33 @@ def login(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    csrf_token: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    validate_csrf_token(request, csrf_token)
+    enforce_login_rate_limit(request, username)
+
     # Busca o usuário pelo nome informado no formulário.
     user = db.query(models.User).filter(models.User.username == username).first()
 
     # Só permite login para usuário existente, ativo e com senha válida.
     if not user or not user.is_active or not verify_password(password, user.password_hash):
+        register_failed_login(request, username)
         return templates.TemplateResponse(
             request,
             "login.html",
-            {"error": "Usuário ou senha inválidos"},
+            {
+                "error": "Usuário ou senha inválidos",
+                "csrf_token": get_csrf_token(request)
+            },
             status_code=401
         )
 
     # Salva o usuário autenticado na sessão assinada para liberar acesso ao dashboard.
+    clear_failed_logins(request, username)
     request.session.clear()
     request.session["session_user"] = user.username
+    request.session["csrf_token"] = secrets.token_urlsafe(32)
     response = RedirectResponse(url="/dashboard", status_code=303)
     return response
 
@@ -237,7 +344,8 @@ def dashboard(request: Request, q: str | None = None, db: Session = Depends(get_
             "q": q,
             "total_assets": total_assets,
             "assets_with_ip": assets_with_ip,
-            "assets_with_serial": assets_with_serial
+            "assets_with_serial": assets_with_serial,
+            "csrf_token": get_csrf_token(request)
         }
     )
 
@@ -257,18 +365,13 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     if existing_asset:
         # Atualiza os dados do ativo já existente com a última coleta recebida do agent.
         apply_asset_payload(existing_asset, asset_data)
-        db.commit()
-        db.refresh(existing_asset)
-        return existing_asset
+        return commit_asset_checkin(existing_asset, asset_data, db)
 
     # Se nenhum identificador existente foi encontrado, cria um novo registro do ativo.
     new_asset = models.Asset(**asset_data, ultima_comunicacao=datetime.utcnow())
 
     db.add(new_asset)
-    db.commit()
-    db.refresh(new_asset)
-
-    return new_asset
+    return commit_asset_checkin(new_asset, asset_data, db)
 
 @app.get("/export/csv")
 def export_csv(request: Request, q: str | None = None, db: Session = Depends(get_db)):
@@ -372,7 +475,9 @@ def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db))
     )
 
 @app.post("/logout")
-def logout(request: Request):
+def logout(request: Request, csrf_token: str = Form(...)):
+    validate_csrf_token(request, csrf_token)
+
     # Encerra a sessão assinada e redireciona para a tela de login.
     request.session.clear()
     response = RedirectResponse(url="/login", status_code=303)
