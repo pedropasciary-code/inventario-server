@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+import argparse
 from datetime import datetime
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
@@ -16,7 +17,7 @@ else:
 sys.path.append(str(BASE_DIR))
 
 from collector import get_system_info
-from sender import send_data, load_config
+from sender import send_data, load_config, check_api_health
 
 
 # Arquivos de apoio usados para registrar execução e guardar coletas que falharam.
@@ -83,7 +84,45 @@ def resend_failed_payloads():
             logging.error(f"Falha ao reenviar {file_path.name}: {error}")
 
 
+def diagnose():
+    print("Diagnóstico do RDP System Agent")
+
+    config = load_config()
+    print(f"Config carregada: {BASE_DIR / 'config.json'}")
+    print(f"API URL: {config.get('api_url')}")
+    print(f"Token configurado: {'sim' if config.get('agent_token') else 'não'}")
+    print(f"Versão do agent: {config.get('agent_version', 'unknown')}")
+
+    data = get_system_info()
+    print(f"Hostname: {data.get('hostname')}")
+    print(f"Serial: {data.get('serial') or 'não coletado'}")
+    print(f"IP principal: {data.get('ip') or 'não coletado'}")
+    print(f"MAC principal: {data.get('mac_address') or 'não coletado'}")
+    print(f"Interfaces de rede: {len(data.get('network_interfaces') or [])}")
+
+    health = check_api_health()
+    print(f"API acessível: {health['url']} ({health['status_code']})")
+
+
 def main():
+    parser = argparse.ArgumentParser(description="Executa o RDP System Agent.")
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Valida configuração, coleta local e conectividade sem enviar check-in.",
+    )
+    args = parser.parse_args()
+
+    if args.diagnose:
+        try:
+            diagnose()
+            return
+        except Exception as error:
+            logging.error(f"Erro no diagnóstico do agent: {error}")
+            print("Erro no diagnóstico do agent:")
+            print(error)
+            return
+
     # Fluxo principal: carrega configuração, reenvia pendências, coleta e envia dados.
     try:
         config = load_config()

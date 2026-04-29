@@ -68,3 +68,21 @@ def test_get_network_interfaces_filters_down_and_normalizes(monkeypatch):
             "is_virtual": False,
         }
     ]
+
+
+def test_get_system_info_works_without_wmi(monkeypatch):
+    monkeypatch.setattr(collector, "wmi", None)
+    monkeypatch.setattr(collector.socket, "gethostname", lambda: "PC-TEST")
+    monkeypatch.setattr(collector, "get_network_interfaces", lambda: [])
+    monkeypatch.setattr(collector, "get_disk_info", lambda: ("100.0", "50.0"))
+    monkeypatch.setattr(collector, "get_total_ram_gb", lambda: 8.0)
+    monkeypatch.setattr(collector, "get_last_boot", lambda: "2026-04-29T10:00:00")
+    monkeypatch.setattr(collector.psutil, "users", lambda: [])
+
+    data = collector.get_system_info()
+
+    assert data["hostname"] == "PC-TEST"
+    assert data["serial"] is None
+    assert data["ip"] is None
+    assert data["mac_address"] is None
+    assert data["network_interfaces"] == []

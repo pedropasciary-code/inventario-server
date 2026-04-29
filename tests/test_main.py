@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import re
 from datetime import UTC, datetime, timedelta
 
@@ -51,6 +52,35 @@ def test_checkin_creates_and_updates_asset(client, db_session):
     assert update_response.json()["id"] == create_response.json()["id"]
     assert update_response.json()["hostname"] == "PC-01-RENAMED"
     assert db_session.query(models.Asset).count() == 1
+
+
+def test_checkin_normalizes_serial_and_mac_identity(client, db_session):
+    create_response = client.post(
+        "/checkin",
+        json={
+            "hostname": "PC-01",
+            "serial": " serial-01 ",
+            "mac_address": "aa:bb:cc:00:00:01",
+        },
+        headers=AGENT_HEADERS,
+    )
+    assert create_response.status_code == 200
+
+    update_response = client.post(
+        "/checkin",
+        json={
+            "hostname": "PC-01-UPDATED",
+            "serial": "SERIAL-01",
+            "mac_address": "AA-BB-CC-00-00-01",
+        },
+        headers=AGENT_HEADERS,
+    )
+
+    assert update_response.status_code == 200
+    assert update_response.json()["id"] == create_response.json()["id"]
+    asset = db_session.query(models.Asset).one()
+    assert asset.serial == "SERIAL-01"
+    assert asset.mac_address == "AA-BB-CC-00-00-01"
 
 
 def test_checkin_rejects_invalid_agent_token(client):
@@ -166,6 +196,44 @@ def test_dashboard_paginates_and_shows_real_status(client, db_session, admin_use
     assert "Comunicando" in response.text
     assert "Atrasado" in response.text
     assert "Inativo" in response.text
+
+
+def test_asset_detail_shows_network_interfaces(client, db_session, admin_user):
+    interfaces = [
+        {
+            "name": "Ethernet",
+            "mac_address": "AA-BB-CC-00-00-01",
+            "ip_addresses": ["192.168.0.10"],
+            "is_virtual": False,
+        },
+        {
+            "name": "VPN Adapter",
+            "mac_address": "AA-BB-CC-00-00-02",
+            "ip_addresses": ["10.8.0.2"],
+            "is_virtual": True,
+        },
+    ]
+    asset = models.Asset(
+        hostname="PC-DETAIL",
+        serial="SERIAL-DETAIL",
+        mac_address="AA-BB-CC-00-00-01",
+        network_interfaces=json.dumps(interfaces),
+        ultima_comunicacao=datetime.now(UTC),
+    )
+    db_session.add(asset)
+    db_session.commit()
+    db_session.refresh(asset)
+
+    assert login(client).status_code == 303
+
+    response = client.get(f"/assets/{asset.id}")
+
+    assert response.status_code == 200
+    assert "Interfaces de Rede" in response.text
+    assert "Ethernet" in response.text
+    assert "VPN Adapter" in response.text
+    assert "Física" in response.text
+    assert "Virtual" in response.text
 
 
 def test_dashboard_filters_status_and_sorts(client, db_session, admin_user):

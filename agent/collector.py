@@ -4,7 +4,11 @@ from datetime import datetime
 import ipaddress
 
 import psutil
-import wmi
+
+try:
+    import wmi
+except ImportError:
+    wmi = None
 
 VIRTUAL_INTERFACE_KEYWORDS = [
     "bluetooth",
@@ -170,7 +174,7 @@ def get_last_boot():
 
 def get_system_info():
     # Inicializa a interface WMI para consultar detalhes mais profundos do Windows.
-    c = wmi.WMI()
+    c = wmi.WMI() if wmi else None
 
     serial = None
     cpu = None
@@ -182,7 +186,9 @@ def get_system_info():
 
     try:
         # BIOS fornece serial da máquina e versão do firmware.
-        bios = c.Win32_BIOS()[0]
+        bios = c.Win32_BIOS()[0] if c else None
+        if not bios:
+            raise RuntimeError("WMI indisponível")
         serial = bios.SerialNumber.strip()
         bios_version = bios.SMBIOSBIOSVersion.strip()
     except Exception:
@@ -190,14 +196,18 @@ def get_system_info():
 
     try:
         # Recupera o nome comercial do processador instalado.
-        processor = c.Win32_Processor()[0]
+        processor = c.Win32_Processor()[0] if c else None
+        if not processor:
+            raise RuntimeError("WMI indisponível")
         cpu = processor.Name.strip()
     except Exception:
         pass
 
     try:
         # Obtém fabricante e modelo reportados pelo sistema.
-        system = c.Win32_ComputerSystem()[0]
+        system = c.Win32_ComputerSystem()[0] if c else None
+        if not system:
+            raise RuntimeError("WMI indisponível")
         fabricante = system.Manufacturer.strip()
         modelo = system.Model.strip()
     except Exception:
@@ -205,14 +215,18 @@ def get_system_info():
 
     try:
         # Identifica a placa-mãe combinando fabricante e produto.
-        board = c.Win32_BaseBoard()[0]
+        board = c.Win32_BaseBoard()[0] if c else None
+        if not board:
+            raise RuntimeError("WMI indisponível")
         motherboard = f"{board.Manufacturer.strip()} {board.Product.strip()}"
     except Exception:
         pass
 
     try:
         # Monta uma descrição amigável da versão do Windows instalada.
-        os_info = c.Win32_OperatingSystem()[0]
+        os_info = c.Win32_OperatingSystem()[0] if c else None
+        if not os_info:
+            raise RuntimeError("WMI indisponível")
         versao_windows = f"{os_info.Caption.strip()} {os_info.Version.strip()}"
     except Exception:
         pass

@@ -62,6 +62,25 @@ def format_datetime(value: datetime | None) -> str:
 templates.env.filters["datetime_br"] = format_datetime
 
 
+def parse_network_interfaces(value: str | None) -> list[dict]:
+    if not value:
+        return []
+
+    try:
+        interfaces = json.loads(value)
+    except json.JSONDecodeError:
+        return []
+
+    if not isinstance(interfaces, list):
+        return []
+
+    return [
+        interface
+        for interface in interfaces
+        if isinstance(interface, dict)
+    ]
+
+
 def get_db():
     # Abre uma sessão por requisição e sempre fecha a conexão ao final do uso.
     db = SessionLocal()
@@ -112,6 +131,16 @@ ASSET_TEXT_FIELDS = [
     "disco_livre_gb",
     "agent_version",
 ]
+
+UNKNOWN_SERIAL_VALUES = {
+    "0",
+    "NONE",
+    "NULL",
+    "SYSTEM SERIAL NUMBER",
+    "TO BE FILLED BY O.E.M.",
+    "TO BE FILLED BY OEM",
+    "UNKNOWN",
+}
 
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5
 LOGIN_RATE_LIMIT_WINDOW = timedelta(minutes=15)
@@ -232,6 +261,30 @@ def normalize_direction(direction: str | None) -> str:
     return "asc"
 
 
+def normalize_mac_address(mac_address: str | None) -> str | None:
+    if not mac_address:
+        return None
+
+    mac_address = mac_address.strip().upper().replace(":", "-")
+
+    if mac_address in {"00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"}:
+        return None
+
+    return mac_address or None
+
+
+def normalize_serial(serial: str | None) -> str | None:
+    if not serial:
+        return None
+
+    serial = " ".join(serial.strip().upper().split())
+
+    if serial in UNKNOWN_SERIAL_VALUES:
+        return None
+
+    return serial or None
+
+
 def build_asset_query(db: Session, q: str | None = None):
     query = db.query(models.Asset)
 
@@ -334,6 +387,9 @@ def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
 
         if field == "network_interfaces" and isinstance(value, list):
             data[field] = json.dumps(value, ensure_ascii=False)
+
+    data["serial"] = normalize_serial(data.get("serial"))
+    data["mac_address"] = normalize_mac_address(data.get("mac_address"))
 
     return data
 
@@ -694,7 +750,8 @@ def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db))
         request,
         "asset_detail.html",
         {
-            "asset": asset
+            "asset": asset,
+            "network_interfaces": parse_network_interfaces(asset.network_interfaces)
         }
     )
 

@@ -101,6 +101,29 @@
             word-break: break-word;
             color: #2f505f;
         }
+
+        .interface-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .interface-item {
+            border: 1px solid #e4eeee;
+            border-radius: 12px;
+            padding: 12px;
+            background: #f8fcfc;
+        }
+
+        .interface-name {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .interface-meta {
+            display: grid;
+            gap: 6px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -144,6 +167,26 @@
                 <div class="detail-item"><span class="detail-label">MAC Address</span><span class="detail-value">{{ asset.mac_address or "" }}</span></div>
                 <div class="detail-item"><span class="detail-label">Disco Total</span><span class="detail-value">{{ asset.disco_total_gb or "" }}</span></div>
                 <div class="detail-item"><span class="detail-label">Disco Livre</span><span class="detail-value">{{ asset.disco_livre_gb or "" }}</span></div>
+            </div>
+
+            <div class="card">
+                <h2>Interfaces de Rede</h2>
+                {% if network_interfaces %}
+                <div class="interface-list">
+                    {% for interface in network_interfaces %}
+                    <div class="interface-item">
+                        <div class="interface-name">{{ interface.name or "Interface sem nome" }}</div>
+                        <div class="interface-meta">
+                            <span>MAC: {{ interface.mac_address or "" }}</span>
+                            <span>IPs: {{ ", ".join(interface.ip_addresses or []) }}</span>
+                            <span>Tipo: {{ "Virtual" if interface.is_virtual else "Física" }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="detail-item"><span class="detail-value">Nenhuma interface registrada.</span></div>
+                {% endif %}
             </div>
 
             <div class="card">

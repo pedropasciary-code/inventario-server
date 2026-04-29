@@ -2,6 +2,7 @@ import json
 import time
 import sys
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 import requests
 
@@ -30,6 +31,25 @@ def load_config():
             raise ValueError(f"Configuração obrigatória ausente: {key}")
 
     return config
+
+
+def get_health_url(api_url):
+    parsed_url = urlparse(api_url)
+    return urlunparse((parsed_url.scheme, parsed_url.netloc, "/", "", "", ""))
+
+
+def check_api_health():
+    config = load_config()
+    timeout = config.get("timeout", 10)
+    health_url = config.get("health_url") or get_health_url(config["api_url"])
+
+    response = requests.get(health_url, timeout=timeout)
+    response.raise_for_status()
+    return {
+        "url": health_url,
+        "status_code": response.status_code,
+        "body": response.text[:200],
+    }
 
 
 def send_data(payload):

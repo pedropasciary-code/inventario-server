@@ -24,6 +24,7 @@ Fluxo de funcionamento:
 - Busca por hostname, usuario, serial, fabricante, modelo e IP.
 - Dashboard com paginacao, filtro por status e ordenacao por colunas principais.
 - Status real por ultima comunicacao: comunicando, atrasado ou inativo.
+- Detalhe do ativo com interfaces de rede coletadas pelo agent.
 - Exportacao em `CSV` e `XLSX` respeitando filtros, ordenacao e status.
 - Pagina de detalhes para cada ativo.
 - Agent com log rotativo local.
@@ -210,6 +211,12 @@ Durante a execucao, o agent:
 - salva falhas em `agent/failed_payloads`
 - reenvia payloads pendentes na proxima execucao
 
+Para diagnosticar configuracao, coleta local e conectividade sem enviar check-in:
+
+```powershell
+python agent\agent.py --diagnose
+```
+
 ## Instalando O Agent No Windows
 
 O projeto possui dois instaladores:
@@ -306,6 +313,8 @@ O endpoint `/checkin` identifica ativos nesta ordem:
 3. `hostname`, apenas como fallback quando nao houver serial/MAC e quando o hostname nao for ambiguo.
 
 Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409 Conflict` para evitar mesclar maquinas distintas. Se o payload nao trouxer nenhum dos tres identificadores, a API retorna `422`.
+
+Antes de comparar ou salvar, a API normaliza `serial` e `mac_address` para reduzir duplicidades por diferenca de caixa, espacos ou separador de MAC.
 
 ## Campos Coletados Pelo Agent
 
