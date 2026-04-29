@@ -1,3 +1,5 @@
+import csv
+import io
 import re
 from datetime import UTC, datetime, timedelta
 
@@ -164,3 +166,76 @@ def test_dashboard_paginates_and_shows_real_status(client, db_session, admin_use
     assert "Comunicando" in response.text
     assert "Atrasado" in response.text
     assert "Inativo" in response.text
+
+
+def test_dashboard_filters_status_and_sorts(client, db_session, admin_user):
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            models.Asset(
+                hostname="PC-ONLINE",
+                usuario="ana",
+                serial="SERIAL-ONLINE",
+                mac_address="AA-BB-CC-00-10-01",
+                ultima_comunicacao=now,
+            ),
+            models.Asset(
+                hostname="PC-STALE",
+                usuario="bruno",
+                serial="SERIAL-STALE",
+                mac_address="AA-BB-CC-00-10-02",
+                ultima_comunicacao=now - timedelta(days=2),
+            ),
+            models.Asset(
+                hostname="PC-INACTIVE",
+                usuario="carla",
+                serial="SERIAL-INACTIVE",
+                mac_address="AA-BB-CC-00-10-03",
+                ultima_comunicacao=now - timedelta(days=10),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+
+    response = client.get("/dashboard?status=stale&sort=usuario&direction=desc&per_page=10")
+
+    assert response.status_code == 200
+    assert "PC-STALE" in response.text
+    assert "PC-ONLINE" not in response.text
+    assert "PC-INACTIVE" not in response.text
+    assert "Atrasado" in response.text
+    assert "10 por página" in response.text
+
+
+def test_csv_export_includes_status_and_formatted_dates(client, db_session, admin_user):
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            models.Asset(
+                hostname="PC-ONLINE",
+                serial="SERIAL-ONLINE",
+                mac_address="AA-BB-CC-00-20-01",
+                ultima_comunicacao=now,
+            ),
+            models.Asset(
+                hostname="PC-INACTIVE",
+                serial="SERIAL-INACTIVE",
+                mac_address="AA-BB-CC-00-20-02",
+                ultima_comunicacao=now - timedelta(days=10),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+
+    response = client.get("/export/csv?status=inactive")
+
+    assert response.status_code == 200
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert len(rows) == 1
+    assert rows[0]["Hostname"] == "PC-INACTIVE"
+    assert rows[0]["Status"] == "Inativo"
+    assert "/" in rows[0]["Ultima Comunicacao"]

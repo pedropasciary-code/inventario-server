@@ -137,7 +137,7 @@
             flex-wrap: wrap;
         }
 
-        input[type="text"] {
+        input[type="text"], select {
             flex: 1;
             min-width: 260px;
             padding: 12px 14px;
@@ -147,7 +147,11 @@
             background: #fbfdfd;
         }
 
-        input[type="text"]:focus {
+        select {
+            min-width: 150px;
+        }
+
+        input[type="text"]:focus, select:focus {
             outline: none;
             border-color: #4c8c9c;
             box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.12);
@@ -175,6 +179,15 @@
         th {
             color: #4f676d;
             background: #f6fbfb;
+        }
+
+        th a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        th a:hover {
+            text-decoration: underline;
         }
 
         tr:hover {
@@ -256,8 +269,8 @@
             </div>
 
             <div class="actions">
-                <a class="button" href="/export/csv{% if q %}?q={{ q|urlencode }}{% endif %}">Exportar CSV</a>
-                <a class="button" href="/export/xlsx{% if q %}?q={{ q|urlencode }}{% endif %}">Exportar Excel</a>
+                <a class="button" href="/export/csv?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Exportar CSV</a>
+                <a class="button" href="/export/xlsx?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Exportar Excel</a>
                 <form method="post" action="/logout" style="margin:0;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <button class="button" type="submit">Sair</button>
@@ -297,7 +310,18 @@
                     placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
                     value="{{ q or '' }}"
                 >
-                <input type="hidden" name="per_page" value="{{ per_page }}">
+                <select name="status">
+                    {% for status_value, status_label in status_options.items() %}
+                    <option value="{{ status_value }}"{% if status == status_value %} selected{% endif %}>{{ status_label }}</option>
+                    {% endfor %}
+                </select>
+                <select name="per_page">
+                    {% for option in page_size_options %}
+                    <option value="{{ option }}"{% if per_page == option %} selected{% endif %}>{{ option }} por página</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="sort" value="{{ sort }}">
+                <input type="hidden" name="direction" value="{{ direction }}">
                 <button class="button" type="submit">Buscar</button>
                 <a class="button" href="/dashboard">Limpar</a>
             </form>
@@ -309,8 +333,8 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Hostname</th>
-                        <th>Usuário</th>
+                        <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=hostname&direction={{ sort_links['hostname'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Hostname{% if sort == "hostname" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
+                        <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=usuario&direction={{ sort_links['usuario'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Usuário{% if sort == "usuario" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
                         <th>Serial</th>
                         <th>Fabricante</th>
                         <th>Modelo</th>
@@ -318,7 +342,7 @@
                         <th>RAM</th>
                         <th>IP</th>
                         <th>Status</th>
-                        <th>Última comunicação</th>
+                        <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=ultima_comunicacao&direction={{ sort_links['ultima_comunicacao'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Última comunicação{% if sort == "ultima_comunicacao" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -350,14 +374,14 @@
                 <div class="pagination-actions">
                     <a
                         class="button{% if not has_previous_page %} disabled{% endif %}"
-                        href="/dashboard?page={{ page - 1 }}&per_page={{ per_page }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                        href="/dashboard?page={{ page - 1 }}&per_page={{ per_page }}&status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}"
                     >
                         Anterior
                     </a>
                     <span>Página {{ page }} de {{ total_pages }}</span>
                     <a
                         class="button{% if not has_next_page %} disabled{% endif %}"
-                        href="/dashboard?page={{ page + 1 }}&per_page={{ per_page }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                        href="/dashboard?page={{ page + 1 }}&per_page={{ per_page }}&status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}"
                     >
                         Próxima
                     </a>

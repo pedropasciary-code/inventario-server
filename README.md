@@ -22,7 +22,9 @@ Fluxo de funcionamento:
 - Cadastro e atualizacao automatica de ativos por serial, MAC Address ou hostname.
 - Painel web com login por usuario e senha.
 - Busca por hostname, usuario, serial, fabricante, modelo e IP.
-- Exportacao em `CSV` e `XLSX`.
+- Dashboard com paginacao, filtro por status e ordenacao por colunas principais.
+- Status real por ultima comunicacao: comunicando, atrasado ou inativo.
+- Exportacao em `CSV` e `XLSX` respeitando filtros, ordenacao e status.
 - Pagina de detalhes para cada ativo.
 - Agent com log rotativo local.
 - Retry automatico de envio HTTP.
@@ -268,7 +270,7 @@ Publicos:
 
 Protegidos por sessao:
 
-- `GET /dashboard`: lista e filtra ativos.
+- `GET /dashboard`: lista, filtra, ordena e pagina ativos.
 - `GET /assets/{asset_id}`: exibe detalhes de um ativo.
 - `GET /export/csv`: exporta o inventario em CSV.
 - `GET /export/xlsx`: exporta o inventario em Excel.
@@ -352,5 +354,4 @@ Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409
 
 ## Proximos Passos Sugeridos
 
-- adicionar paginacao e status real por ultima comunicacao no dashboard
 - adicionar testes especificos da coleta WMI em ambiente Windows

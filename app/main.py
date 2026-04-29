@@ -9,7 +9,7 @@ from fastapi import FastAPI, Depends, Header, HTTPException, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import asc, desc, or_
 from sqlalchemy.exc import IntegrityError
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -119,6 +119,23 @@ DASHBOARD_DEFAULT_PAGE_SIZE = 25
 DASHBOARD_MAX_PAGE_SIZE = 100
 ASSET_ONLINE_WINDOW = timedelta(hours=24)
 ASSET_STALE_WINDOW = timedelta(days=7)
+DASHBOARD_PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
+ASSET_STATUS_OPTIONS = {
+    "all": "Todos",
+    "online": "Comunicando",
+    "stale": "Atrasados",
+    "inactive": "Inativos",
+}
+ASSET_SORT_OPTIONS = {
+    "hostname": models.Asset.hostname,
+    "usuario": models.Asset.usuario,
+    "ultima_comunicacao": models.Asset.ultima_comunicacao,
+}
+ASSET_SORT_LABELS = {
+    "hostname": "Hostname",
+    "usuario": "Usuário",
+    "ultima_comunicacao": "Última comunicação",
+}
 
 
 def get_csrf_token(request: Request) -> str:
@@ -192,6 +209,27 @@ def clear_failed_logins(request: Request, username: str):
     login_attempts.pop(login_rate_limit_key(request, username), None)
 
 
+def normalize_status_filter(status: str | None) -> str:
+    if status in ASSET_STATUS_OPTIONS:
+        return status
+
+    return "all"
+
+
+def normalize_sort(sort: str | None) -> str:
+    if sort in ASSET_SORT_OPTIONS:
+        return sort
+
+    return "hostname"
+
+
+def normalize_direction(direction: str | None) -> str:
+    if direction == "desc":
+        return "desc"
+
+    return "asc"
+
+
 def build_asset_query(db: Session, q: str | None = None):
     query = db.query(models.Asset)
 
@@ -209,6 +247,52 @@ def build_asset_query(db: Session, q: str | None = None):
         )
 
     return query
+
+
+def apply_status_filter(query, status: str, now: datetime):
+    online_after = now - ASSET_ONLINE_WINDOW
+    stale_after = now - ASSET_STALE_WINDOW
+
+    if status == "online":
+        return query.filter(models.Asset.ultima_comunicacao >= online_after)
+
+    if status == "stale":
+        return (
+            query
+            .filter(models.Asset.ultima_comunicacao < online_after)
+            .filter(models.Asset.ultima_comunicacao >= stale_after)
+        )
+
+    if status == "inactive":
+        return query.filter(
+            or_(
+                models.Asset.ultima_comunicacao.is_(None),
+                models.Asset.ultima_comunicacao < stale_after
+            )
+        )
+
+    return query
+
+
+def apply_asset_sort(query, sort: str, direction: str):
+    sort_column = ASSET_SORT_OPTIONS[sort]
+    order_expression = desc(sort_column) if direction == "desc" else asc(sort_column)
+
+    return query.order_by(order_expression, asc(models.Asset.id))
+
+
+def prepare_assets_for_display(assets: list[models.Asset], now: datetime):
+    for asset in assets:
+        asset.dashboard_status = get_asset_status(asset, now)
+
+    return assets
+
+
+def next_sort_direction(current_sort: str, current_direction: str, target_sort: str) -> str:
+    if current_sort == target_sort and current_direction == "asc":
+        return "desc"
+
+    return "asc"
 
 
 def clamp_page_size(per_page: int) -> int:
@@ -382,6 +466,9 @@ def login(
 def dashboard(
     request: Request,
     q: str | None = None,
+    status: str = "all",
+    sort: str = "hostname",
+    direction: str = "asc",
     page: int = 1,
     per_page: int = DASHBOARD_DEFAULT_PAGE_SIZE,
     db: Session = Depends(get_db)
@@ -392,25 +479,27 @@ def dashboard(
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
 
-    query = build_asset_query(db, q)
+    status = normalize_status_filter(status)
+    sort = normalize_sort(sort)
+    direction = normalize_direction(direction)
+    base_query = build_asset_query(db, q)
     now = utc_now()
     online_after = now - ASSET_ONLINE_WINDOW
     stale_after = now - ASSET_STALE_WINDOW
 
-    total_assets = query.count()
     communicating_assets = (
-        query
+        base_query
         .filter(models.Asset.ultima_comunicacao >= online_after)
         .count()
     )
     stale_assets = (
-        query
+        base_query
         .filter(models.Asset.ultima_comunicacao < online_after)
         .filter(models.Asset.ultima_comunicacao >= stale_after)
         .count()
     )
     inactive_assets = (
-        query
+        base_query
         .filter(
             or_(
                 models.Asset.ultima_comunicacao.is_(None),
@@ -420,6 +509,17 @@ def dashboard(
         .count()
     )
 
+    query = apply_status_filter(base_query, status, now)
+    total_assets = query.count()
+    total_matching_assets = base_query.count()
+    status_filter_label = ASSET_STATUS_OPTIONS[status]
+    sort_label = ASSET_SORT_LABELS[sort]
+    reverse_direction = "desc" if direction == "asc" else "asc"
+    sort_links = {
+        sort_key: next_sort_direction(sort, direction, sort_key)
+        for sort_key in ASSET_SORT_OPTIONS
+    }
+
     per_page = clamp_page_size(per_page)
     total_pages = max(math.ceil(total_assets / per_page), 1)
     page = min(max(page, 1), total_pages)
@@ -427,15 +527,12 @@ def dashboard(
 
     # Ordena e pagina no banco para manter o dashboard leve quando o inventário crescer.
     assets = (
-        query
-        .order_by(models.Asset.hostname.asc())
+        apply_asset_sort(query, sort, direction)
         .offset(offset)
         .limit(per_page)
         .all()
     )
-
-    for asset in assets:
-        asset.dashboard_status = get_asset_status(asset, now)
+    prepare_assets_for_display(assets, now)
 
     first_item = offset + 1 if total_assets else 0
     last_item = min(offset + len(assets), total_assets)
@@ -447,7 +544,17 @@ def dashboard(
             "session_user": session_user,
             "assets": assets,
             "q": q,
+            "status": status,
+            "sort": sort,
+            "direction": direction,
+            "reverse_direction": reverse_direction,
+            "sort_links": sort_links,
+            "sort_label": sort_label,
+            "status_filter_label": status_filter_label,
+            "status_options": ASSET_STATUS_OPTIONS,
+            "page_size_options": DASHBOARD_PAGE_SIZE_OPTIONS,
             "total_assets": total_assets,
+            "total_matching_assets": total_matching_assets,
             "communicating_assets": communicating_assets,
             "stale_assets": stale_assets,
             "inactive_assets": inactive_assets,
@@ -487,30 +594,27 @@ def checkin(asset: schemas.AssetCreate, db: Session = Depends(get_db)):
     return commit_asset_checkin(new_asset, asset_data, db)
 
 @app.get("/export/csv")
-def export_csv(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+def export_csv(
+    request: Request,
+    q: str | None = None,
+    status: str = "all",
+    sort: str = "hostname",
+    direction: str = "asc",
+    db: Session = Depends(get_db)
+):
     # Exige sessão válida antes de liberar exportação dos dados.
     session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Reaproveita a mesma lógica de filtro do dashboard para exportar apenas o resultado visível.
-    query = db.query(models.Asset)
-
-    if q:
-        termo = f"%{q}%"
-        query = query.filter(
-            or_(
-                models.Asset.hostname.ilike(termo),
-                models.Asset.usuario.ilike(termo),
-                models.Asset.serial.ilike(termo),
-                models.Asset.fabricante.ilike(termo),
-                models.Asset.modelo.ilike(termo),
-                models.Asset.ip.ilike(termo)
-            )
-        )
-
-    assets = query.order_by(models.Asset.hostname.asc()).all()
+    status = normalize_status_filter(status)
+    sort = normalize_sort(sort)
+    direction = normalize_direction(direction)
+    now = utc_now()
+    query = apply_status_filter(build_asset_query(db, q), status, now)
+    assets = apply_asset_sort(query, sort, direction).all()
+    prepare_assets_for_display(assets, now)
 
     # Gera o CSV em memória para não depender de arquivo temporário em disco.
     output = io.StringIO()
@@ -529,6 +633,7 @@ def export_csv(request: Request, q: str | None = None, db: Session = Depends(get
         "Versao Windows",
         "IP",
         "MAC Address",
+        "Status",
         "Disco Total GB",
         "Disco Livre GB",
         "Ultimo Boot",
@@ -549,10 +654,11 @@ def export_csv(request: Request, q: str | None = None, db: Session = Depends(get
             asset.versao_windows,
             asset.ip,
             asset.mac_address,
+            asset.dashboard_status["label"],
             asset.disco_total_gb,
             asset.disco_livre_gb,
-            asset.ultimo_boot,
-            asset.ultima_comunicacao
+            format_datetime(asset.ultimo_boot),
+            format_datetime(asset.ultima_comunicacao)
         ])
 
     output.seek(0)
@@ -597,30 +703,27 @@ def logout(request: Request, csrf_token: str = Form(...)):
     return response
 
 @app.get("/export/xlsx")
-def export_xlsx(request: Request, q: str | None = None, db: Session = Depends(get_db)):
+def export_xlsx(
+    request: Request,
+    q: str | None = None,
+    status: str = "all",
+    sort: str = "hostname",
+    direction: str = "asc",
+    db: Session = Depends(get_db)
+):
     # Exige autenticação para exportação em Excel assim como no CSV.
     session_user = get_session_user(request, db)
 
     if not session_user:
         return RedirectResponse(url="/login", status_code=303)
 
-    # Reconstroi a consulta com o mesmo filtro opcional aplicado no dashboard.
-    query = db.query(models.Asset)
-
-    if q:
-        termo = f"%{q}%"
-        query = query.filter(
-            or_(
-                models.Asset.hostname.ilike(termo),
-                models.Asset.usuario.ilike(termo),
-                models.Asset.serial.ilike(termo),
-                models.Asset.fabricante.ilike(termo),
-                models.Asset.modelo.ilike(termo),
-                models.Asset.ip.ilike(termo)
-            )
-        )
-
-    assets = query.order_by(models.Asset.hostname.asc()).all()
+    status = normalize_status_filter(status)
+    sort = normalize_sort(sort)
+    direction = normalize_direction(direction)
+    now = utc_now()
+    query = apply_status_filter(build_asset_query(db, q), status, now)
+    assets = apply_asset_sort(query, sort, direction).all()
+    prepare_assets_for_display(assets, now)
 
     # Cria a planilha em memória e prepara a aba principal do inventário.
     workbook = Workbook()
@@ -640,6 +743,7 @@ def export_xlsx(request: Request, q: str | None = None, db: Session = Depends(ge
         "Arquitetura",
         "IP",
         "MAC Address",
+        "Status",
         "Placa-mae",
         "BIOS",
         "Disco Total GB",
@@ -669,12 +773,13 @@ def export_xlsx(request: Request, q: str | None = None, db: Session = Depends(ge
             asset.arquitetura,
             asset.ip,
             asset.mac_address,
+            asset.dashboard_status["label"],
             asset.motherboard,
             asset.bios_version,
             asset.disco_total_gb,
             asset.disco_livre_gb,
-            asset.ultimo_boot,
-            asset.ultima_comunicacao
+            format_datetime(asset.ultimo_boot),
+            format_datetime(asset.ultima_comunicacao)
         ])
 
     # Ajusta a largura de cada coluna com base no maior valor encontrado.
