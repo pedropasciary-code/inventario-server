@@ -260,6 +260,8 @@ pytest
 
 Os testes usam SQLite em memoria e sobrescrevem a dependencia de banco da API, sem alterar o PostgreSQL configurado no `.env`.
 
+O workflow `.github/workflows/tests.yml` executa automaticamente `py_compile`, `alembic heads` e `pytest` em pushes para `main` e em pull requests.
+
 ## Endpoints Principais
 
 Publicos:
