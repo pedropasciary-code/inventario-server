@@ -14,8 +14,10 @@ os.environ.setdefault("APP_TIMEZONE", "America/Sao_Paulo")
 
 from app.auth import hash_password
 from app.database import Base
-from app.main import app, get_db, login_attempts
+from app.dependencies import get_db
+from app.main import app
 from app.models import User
+from app.rate_limiting import checkin_attempts, login_attempts
 
 
 engine = create_engine(
@@ -39,8 +41,10 @@ def reset_database():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     login_attempts.clear()
+    checkin_attempts.clear()
     yield
     login_attempts.clear()
+    checkin_attempts.clear()
     Base.metadata.drop_all(bind=engine)
 
 

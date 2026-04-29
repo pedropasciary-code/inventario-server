@@ -157,6 +157,24 @@ def test_checkin_conflict_records_audit_event(client, db_session):
     assert details["serial"] == "SERIAL-01"
 
 
+def test_checkin_rate_limit_blocks_flood(client):
+    payload = {"hostname": "PC-FLOOD", "mac_address": "AA-BB-CC-00-FF-01"}
+
+    from app.rate_limiting import CHECKIN_RATE_LIMIT_MAX
+
+    for i in range(CHECKIN_RATE_LIMIT_MAX):
+        payload["mac_address"] = f"AA-BB-CC-00-FF-{i:02d}"
+        response = client.post("/checkin", json=payload, headers=AGENT_HEADERS)
+        assert response.status_code == 200
+
+    blocked = client.post(
+        "/checkin",
+        json={**payload, "mac_address": "AA-BB-CC-00-FF-99"},
+        headers=AGENT_HEADERS,
+    )
+    assert blocked.status_code == 429
+
+
 def test_login_requires_valid_csrf_token(client, admin_user):
     response = client.get("/login")
     assert response.status_code == 200
