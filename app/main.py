@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 import csv
 import hmac
 import io
+import json
 import math
 import secrets
 
@@ -106,6 +107,7 @@ ASSET_TEXT_FIELDS = [
     "arquitetura",
     "versao_windows",
     "mac_address",
+    "network_interfaces",
     "disco_total_gb",
     "disco_livre_gb",
     "agent_version",
@@ -329,6 +331,9 @@ def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
         if isinstance(value, str):
             value = value.strip()
             data[field] = value or None
+
+        if field == "network_interfaces" and isinstance(value, list):
+            data[field] = json.dumps(value, ensure_ascii=False)
 
     return data
 

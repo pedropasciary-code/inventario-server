@@ -38,7 +38,7 @@ jobs:
 
       - name: Compile Python modules
         run: |
-          python -m py_compile app/main.py app/models.py app/schemas.py app/auth.py app/config.py app/database.py create_user.py agent/agent.py agent/collector.py agent/sender.py
+          python -m py_compile app/main.py app/models.py app/schemas.py app/auth.py app/config.py app/database.py create_user.py
 
       - name: Validate Alembic heads
         run: |

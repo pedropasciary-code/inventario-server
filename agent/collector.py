@@ -1,31 +1,142 @@
 import platform
 import socket
 from datetime import datetime
+import ipaddress
 
 import psutil
 import wmi
 
+VIRTUAL_INTERFACE_KEYWORDS = [
+    "bluetooth",
+    "docker",
+    "hyper-v",
+    "isatap",
+    "loopback",
+    "teredo",
+    "virtual",
+    "vmware",
+    "vpn",
+    "vbox",
+    "virtualbox",
+    "wi-fi direct",
+    "wireguard",
+    "wsl",
+]
+
+
+def normalize_mac_address(mac_address):
+    if not mac_address:
+        return None
+
+    mac_address = mac_address.strip().upper().replace(":", "-")
+
+    if mac_address in {"00-00-00-00-00-00", "FF-FF-FF-FF-FF-FF"}:
+        return None
+
+    return mac_address or None
+
+
+def is_virtual_interface(interface_name):
+    interface_name = interface_name.lower()
+    return any(keyword in interface_name for keyword in VIRTUAL_INTERFACE_KEYWORDS)
+
+
+def is_usable_ip(ip_address):
+    try:
+        ip = ipaddress.ip_address(ip_address)
+        return not (
+            ip.is_loopback
+            or ip.is_link_local
+            or ip.is_multicast
+            or ip.is_unspecified
+        )
+    except Exception:
+        return False
+
+
+def get_network_interfaces():
+    interfaces = []
+
+    try:
+        addresses_by_interface = psutil.net_if_addrs()
+        stats_by_interface = psutil.net_if_stats()
+
+        for interface_name, addresses in addresses_by_interface.items():
+            stats = stats_by_interface.get(interface_name)
+
+            if stats and not stats.isup:
+                continue
+
+            mac_address = None
+            ip_addresses = []
+
+            for address in addresses:
+                family = getattr(address, "family", None)
+
+                if family == psutil.AF_LINK:
+                    mac_address = normalize_mac_address(address.address)
+                elif family in {socket.AF_INET, socket.AF_INET6} and is_usable_ip(address.address):
+                    ip_addresses.append(address.address)
+
+            if not mac_address and not ip_addresses:
+                continue
+
+            interfaces.append(
+                {
+                    "name": interface_name,
+                    "mac_address": mac_address,
+                    "ip_addresses": ip_addresses,
+                    "is_virtual": is_virtual_interface(interface_name),
+                }
+            )
+    except Exception:
+        return []
+
+    return interfaces
+
+
+def select_primary_network_interface(interfaces):
+    physical_interfaces = [
+        interface
+        for interface in interfaces
+        if not interface["is_virtual"] and interface["mac_address"]
+    ]
+
+    interfaces_with_ip = [
+        interface
+        for interface in physical_interfaces
+        if interface["ip_addresses"]
+    ]
+
+    if interfaces_with_ip:
+        return interfaces_with_ip[0]
+
+    if physical_interfaces:
+        return physical_interfaces[0]
+
+    for interface in interfaces:
+        if interface["mac_address"]:
+            return interface
+
+    return interfaces[0] if interfaces else None
+
 
 def get_ip():
-    try:
-        # Resolve o IP principal a partir do hostname da máquina.
-        hostname = socket.gethostname()
-        return socket.gethostbyname(hostname)
-    except Exception:
-        return None
+    primary_interface = select_primary_network_interface(get_network_interfaces())
+
+    if primary_interface and primary_interface["ip_addresses"]:
+        return primary_interface["ip_addresses"][0]
+
+    return None
 
 
 def get_mac_address():
-    try:
-        # Procura o primeiro MAC address disponível entre as interfaces de rede.
-        interfaces = psutil.net_if_addrs()
-        for interface_name, addresses in interfaces.items():
-            for address in addresses:
-                if getattr(address, "family", None) == psutil.AF_LINK:
-                    return address.address
-        return None
-    except Exception:
-        return None
+    primary_interface = select_primary_network_interface(get_network_interfaces())
+
+    if primary_interface:
+        return primary_interface["mac_address"]
+
+    return None
 
 
 def get_total_ram_gb():
@@ -108,6 +219,8 @@ def get_system_info():
 
     # Completa a coleta com métricas gerais vindas do psutil.
     disco_total_gb, disco_livre_gb = get_disk_info()
+    network_interfaces = get_network_interfaces()
+    primary_network_interface = select_primary_network_interface(network_interfaces)
 
     # Consolida todos os campos em um payload compatível com o schema da API.
     return {
@@ -116,7 +229,7 @@ def get_system_info():
         "cpu": cpu,
         "ram": f"{get_total_ram_gb()} GB" if get_total_ram_gb() else None,
         "sistema": f"{platform.system()} {platform.release()}",
-        "ip": get_ip(),
+        "ip": primary_network_interface["ip_addresses"][0] if primary_network_interface and primary_network_interface["ip_addresses"] else None,
         "serial": serial,
         "fabricante": fabricante,
         "modelo": modelo,
@@ -124,7 +237,8 @@ def get_system_info():
         "bios_version": bios_version,
         "arquitetura": platform.machine(),
         "versao_windows": versao_windows,
-        "mac_address": get_mac_address(),
+        "mac_address": primary_network_interface["mac_address"] if primary_network_interface else None,
+        "network_interfaces": network_interfaces,
         "disco_total_gb": disco_total_gb,
         "disco_livre_gb": disco_livre_gb,
         "ultimo_boot": get_last_boot(),

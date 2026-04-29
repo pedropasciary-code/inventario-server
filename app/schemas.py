@@ -19,6 +19,7 @@ class AssetBase(BaseModel):
     arquitetura: str | None = None
     versao_windows: str | None = None
     mac_address: str | None = None
+    network_interfaces: list[dict] | str | None = None
     disco_total_gb: str | None = None
     disco_livre_gb: str | None = None
     agent_version: str | None = None

@@ -27,6 +27,7 @@ class Asset(Base):
     arquitetura = Column(String, nullable=True)
     versao_windows = Column(String, nullable=True)
     mac_address = Column(String, nullable=True, unique=True, index=True)
+    network_interfaces = Column(String, nullable=True)
     disco_total_gb = Column(String, nullable=True)
     disco_livre_gb = Column(String, nullable=True)
     agent_version = Column(String, nullable=True)

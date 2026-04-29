@@ -27,6 +27,7 @@ Fluxo de funcionamento:
 - Exportacao em `CSV` e `XLSX` respeitando filtros, ordenacao e status.
 - Pagina de detalhes para cada ativo.
 - Agent com log rotativo local.
+- Agent com selecao de interface principal e envio das interfaces de rede coletadas.
 - Retry automatico de envio HTTP.
 - Salvamento de payloads falhos em `failed_payloads` para reenvio posterior.
 - Instalador Windows com tarefa agendada no logon.
@@ -322,6 +323,7 @@ Se `serial` e `mac_address` apontarem para ativos diferentes, a API retorna `409
 - arquitetura
 - versao_windows
 - mac_address
+- network_interfaces
 - disco_total_gb
 - disco_livre_gb
 - ultimo_boot
