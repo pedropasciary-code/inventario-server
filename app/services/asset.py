@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 
 from fastapi import HTTPException
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..formatting import ensure_utc, utc_now
+
+logger = logging.getLogger(__name__)
 
 
 ASSET_TEXT_FIELDS = [
@@ -26,8 +29,6 @@ ASSET_TEXT_FIELDS = [
     "versao_windows",
     "mac_address",
     "network_interfaces",
-    "disco_total_gb",
-    "disco_livre_gb",
     "agent_version",
 ]
 
@@ -105,7 +106,7 @@ def normalize_serial(serial: str | None) -> str | None:
 
 
 def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
-    data = asset.model_dump()
+    data = asset.model_dump(exclude_unset=True)
     for field in ASSET_TEXT_FIELDS:
         value = data.get(field)
         if isinstance(value, str):
@@ -113,8 +114,10 @@ def normalize_asset_payload(asset: schemas.AssetCreate) -> dict:
             data[field] = value or None
         if field == "network_interfaces" and isinstance(value, list):
             data[field] = json.dumps(value, ensure_ascii=False)
-    data["serial"] = normalize_serial(data.get("serial"))
-    data["mac_address"] = normalize_mac_address(data.get("mac_address"))
+    if "serial" in data:
+        data["serial"] = normalize_serial(data.get("serial"))
+    if "mac_address" in data:
+        data["mac_address"] = normalize_mac_address(data.get("mac_address"))
     return data
 
 
@@ -278,3 +281,25 @@ def clamp_page_size(per_page: int) -> int:
     if per_page <= 0:
         return DASHBOARD_DEFAULT_PAGE_SIZE
     return min(per_page, DASHBOARD_MAX_PAGE_SIZE)
+
+
+def purge_old_checkins(retention_days: int):
+    if retention_days <= 0:
+        return
+    from ..database import SessionLocal
+    cutoff = utc_now() - timedelta(days=retention_days)
+    db = SessionLocal()
+    try:
+        deleted = (
+            db.query(models.AssetCheckin)
+            .filter(models.AssetCheckin.created_at < cutoff)
+            .delete(synchronize_session=False)
+        )
+        db.commit()
+        if deleted:
+            logger.info("Purged %d old asset check-in records (older than %d days)", deleted, retention_days)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to purge old check-in records")
+    finally:
+        db.close()

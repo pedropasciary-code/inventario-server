@@ -22,6 +22,8 @@ from ..services.audit import record_audit_event
 
 router = APIRouter()
 
+EXPORT_MAX_ROWS = 10_000
+
 
 @router.get("/export/csv")
 def export_csv(
@@ -48,10 +50,12 @@ def export_csv(
     )
     now = utc_now()
     query = apply_status_filter(build_asset_query(db, q), status, now)
-    assets = apply_asset_sort(query, sort, direction).all()
+    total_rows = query.count()
+    assets = apply_asset_sort(query, sort, direction).limit(EXPORT_MAX_ROWS).all()
     prepare_assets_for_display(assets, now)
 
     output = io.StringIO()
+    output.write('﻿')  # UTF-8 BOM for Excel compatibility
     writer = csv.writer(output)
     writer.writerow([
         "Hostname", "Usuario", "Serial", "Fabricante", "Modelo", "CPU", "RAM",
@@ -73,8 +77,12 @@ def export_csv(
 
     return StreamingResponse(
         iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=inventario.csv"},
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": "attachment; filename=inventario.csv",
+            "X-Export-Row-Limit": str(EXPORT_MAX_ROWS),
+            "X-Export-Truncated": str(total_rows > EXPORT_MAX_ROWS).lower(),
+        },
     )
 
 
@@ -103,7 +111,8 @@ def export_xlsx(
     )
     now = utc_now()
     query = apply_status_filter(build_asset_query(db, q), status, now)
-    assets = apply_asset_sort(query, sort, direction).all()
+    total_rows = query.count()
+    assets = apply_asset_sort(query, sort, direction).limit(EXPORT_MAX_ROWS).all()
     prepare_assets_for_display(assets, now)
 
     workbook = Workbook()
@@ -148,5 +157,9 @@ def export_xlsx(
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=inventario.xlsx"},
+        headers={
+            "Content-Disposition": "attachment; filename=inventario.xlsx",
+            "X-Export-Row-Limit": str(EXPORT_MAX_ROWS),
+            "X-Export-Truncated": str(total_rows > EXPORT_MAX_ROWS).lower(),
+        },
     )

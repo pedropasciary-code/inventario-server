@@ -21,6 +21,8 @@ from ..templating import templates
 
 router = APIRouter()
 
+EXPORT_MAX_ROWS = 10_000
+
 
 @router.get("/audit", response_class=HTMLResponse)
 def audit_events(
@@ -100,13 +102,17 @@ def export_audit_csv(
     event_type = normalize_audit_event_type(event_type)
     start_date = parse_date_filter(date_from)
     end_date = parse_date_filter(date_to)
+    query = build_audit_query(db, event_type, username, start_date, end_date)
+    total_rows = query.count()
     events = (
-        build_audit_query(db, event_type, username, start_date, end_date)
+        query
         .order_by(desc(models.AuditEvent.created_at), desc(models.AuditEvent.id))
+        .limit(EXPORT_MAX_ROWS)
         .all()
     )
 
     output = io.StringIO()
+    output.write('﻿')  # UTF-8 BOM for Excel compatibility
     writer = csv.writer(output)
     writer.writerow(["Data", "Tipo", "Usuario", "IP", "Detalhes"])
 
@@ -123,6 +129,10 @@ def export_audit_csv(
 
     return StreamingResponse(
         iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=auditoria.csv"},
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": "attachment; filename=auditoria.csv",
+            "X-Export-Row-Limit": str(EXPORT_MAX_ROWS),
+            "X-Export-Truncated": str(total_rows > EXPORT_MAX_ROWS).lower(),
+        },
     )

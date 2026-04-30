@@ -1,10 +1,6 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Boolean, Text
-from datetime import UTC, datetime
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, DateTime, Boolean, Text
 from .database import Base
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
+from .utils import utc_now
 
 
 class Asset(Base):
@@ -28,8 +24,8 @@ class Asset(Base):
     versao_windows = Column(String, nullable=True)
     mac_address = Column(String, nullable=True, unique=True, index=True)
     network_interfaces = Column(String, nullable=True)
-    disco_total_gb = Column(String, nullable=True)
-    disco_livre_gb = Column(String, nullable=True)
+    disco_total_gb = Column(Float, nullable=True)
+    disco_livre_gb = Column(Float, nullable=True)
     agent_version = Column(String, nullable=True)
 
     ultimo_boot = Column(DateTime(timezone=True), nullable=True)

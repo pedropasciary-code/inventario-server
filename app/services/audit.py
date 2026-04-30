@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Request
@@ -6,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..config import DISPLAY_TIMEZONE
-from ..formatting import format_datetime, get_client_ip
+from ..formatting import get_client_ip
+
+logger = logging.getLogger(__name__)
 
 
 AUDIT_EVENT_OPTIONS = {
@@ -33,14 +36,18 @@ def record_audit_event(
     username: str | None = None,
     details: dict | None = None,
 ):
-    event = models.AuditEvent(
-        event_type=event_type,
-        username=username,
-        ip_address=get_client_ip(request),
-        details_json=json.dumps(details or {}, ensure_ascii=False, default=str),
-    )
-    db.add(event)
-    db.commit()
+    try:
+        event = models.AuditEvent(
+            event_type=event_type,
+            username=username,
+            ip_address=get_client_ip(request),
+            details_json=json.dumps(details or {}, ensure_ascii=False, default=str),
+        )
+        db.add(event)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to record audit event: %s", event_type)
 
 
 def normalize_audit_event_type(event_type: str | None) -> str:

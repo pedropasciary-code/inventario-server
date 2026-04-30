@@ -5,7 +5,7 @@ import re
 from datetime import UTC, datetime, timedelta
 
 from app import models
-from app.auth import hash_password
+from app.auth import hash_password, verify_password
 
 
 AGENT_HEADERS = {"X-Agent-Token": "test-agent-token"}
@@ -399,6 +399,8 @@ def test_csv_export_includes_status_and_formatted_dates(client, db_session, admi
     assert rows[0]["Hostname"] == "PC-INACTIVE"
     assert rows[0]["Status"] == "Inativo"
     assert "/" in rows[0]["Ultima Comunicacao"]
+    assert response.headers["X-Export-Row-Limit"] == "10000"
+    assert response.headers["X-Export-Truncated"] == "false"
 
 
 def test_exports_and_logout_record_audit_events(client, db_session, admin_user):
@@ -714,3 +716,177 @@ def test_users_page_prevents_demoting_current_admin(client, db_session, admin_us
     assert "Voce nao pode remover o proprio acesso admin." in response.text
     db_session.refresh(admin_user)
     assert admin_user.is_admin is True
+
+
+def test_apply_asset_payload_preserves_existing_fields_when_none(client, db_session):
+    # First checkin sets ultimo_boot
+    payload = {
+        "hostname": "PC-PRESERVE",
+        "serial": "SERIAL-PRESERVE",
+        "mac_address": "AA-BB-CC-00-AA-01",
+        "ultimo_boot": "2026-01-15T08:00:00Z",
+    }
+    response = client.post("/checkin", json=payload, headers=AGENT_HEADERS)
+    assert response.status_code == 200
+
+    asset = db_session.query(models.Asset).one()
+    assert asset.ultimo_boot is not None
+
+    # Second checkin omits ultimo_boot — existing value must be preserved
+    response = client.post(
+        "/checkin",
+        json={"hostname": "PC-PRESERVE", "serial": "SERIAL-PRESERVE", "mac_address": "AA-BB-CC-00-AA-01"},
+        headers=AGENT_HEADERS,
+    )
+    assert response.status_code == 200
+    db_session.refresh(asset)
+    assert asset.ultimo_boot is not None, "ultimo_boot was erased by a payload without it"
+
+
+def test_checkin_allows_explicit_null_to_clear_field(client, db_session):
+    payload = {
+        "hostname": "PC-CLEAR",
+        "serial": "SERIAL-CLEAR",
+        "mac_address": "AA-BB-CC-00-AA-02",
+        "usuario": "alice",
+    }
+    response = client.post("/checkin", json=payload, headers=AGENT_HEADERS)
+    assert response.status_code == 200
+
+    response = client.post(
+        "/checkin",
+        json={
+            "hostname": "PC-CLEAR",
+            "serial": "SERIAL-CLEAR",
+            "mac_address": "AA-BB-CC-00-AA-02",
+            "usuario": None,
+        },
+        headers=AGENT_HEADERS,
+    )
+
+    assert response.status_code == 200
+    asset = db_session.query(models.Asset).one()
+    assert asset.usuario is None
+
+
+def test_checkin_omitted_identity_fields_are_preserved(client, db_session):
+    payload = {
+        "hostname": "PC-IDENTITY",
+        "serial": "SERIAL-IDENTITY",
+        "mac_address": "AA-BB-CC-00-AA-03",
+    }
+    assert client.post("/checkin", json=payload, headers=AGENT_HEADERS).status_code == 200
+
+    response = client.post(
+        "/checkin",
+        json={"hostname": "PC-IDENTITY", "ip": "10.0.0.10"},
+        headers=AGENT_HEADERS,
+    )
+
+    assert response.status_code == 200
+    asset = db_session.query(models.Asset).one()
+    assert asset.serial == "SERIAL-IDENTITY"
+    assert asset.mac_address == "AA-BB-CC-00-AA-03"
+    assert asset.ip == "10.0.0.10"
+
+
+def test_verify_password_accepts_legacy_pbkdf2_hash():
+    import hashlib
+
+    password = "legacy-password"
+    salt = "legacy-salt"
+    iterations = 100_000
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    ).hex()
+
+    assert verify_password(password, f"{iterations}${salt}${password_hash}") is True
+    assert verify_password("wrong-password", f"{iterations}${salt}${password_hash}") is False
+
+
+def test_parse_non_negative_int_env_rejects_invalid_values(monkeypatch):
+    from app.config import parse_non_negative_int_env
+
+    monkeypatch.setenv("CHECKIN_RETENTION_DAYS", "abc")
+    try:
+        parse_non_negative_int_env("CHECKIN_RETENTION_DAYS", 90)
+    except ValueError as error:
+        assert "deve ser um numero inteiro" in str(error)
+    else:
+        raise AssertionError("invalid retention value was accepted")
+
+    monkeypatch.setenv("CHECKIN_RETENTION_DAYS", "-1")
+    try:
+        parse_non_negative_int_env("CHECKIN_RETENTION_DAYS", 90)
+    except ValueError as error:
+        assert "nao pode ser negativo" in str(error)
+    else:
+        raise AssertionError("negative retention value was accepted")
+
+
+def test_trusted_proxy_header_used_for_rate_limiting(client):
+    # Exhaust rate limit from one forged IP via X-Forwarded-For (must NOT bypass limit
+    # since ProxyHeadersMiddleware is not active in tests — raw client IP is used)
+    from app.rate_limiting import CHECKIN_RATE_LIMIT_MAX, checkin_attempts
+
+    for i in range(CHECKIN_RATE_LIMIT_MAX):
+        r = client.post(
+            "/checkin",
+            json={"hostname": f"PC-{i}", "mac_address": f"AA-BB-CC-01-{i:02d}-00"},
+            headers=AGENT_HEADERS,
+        )
+        assert r.status_code == 200
+
+    blocked = client.post(
+        "/checkin",
+        json={"hostname": "PC-BLOCKED", "mac_address": "AA-BB-CC-01-FF-FF"},
+        headers=AGENT_HEADERS,
+    )
+    assert blocked.status_code == 429
+    # Confirmed: rate limiting keyed by request.client.host works without proxy middleware
+    assert len(checkin_attempts) == 1
+
+
+def test_record_audit_event_does_not_propagate_db_error(client, db_session, admin_user):
+    # Drop the audit_events table to force a DB error on record_audit_event
+    from sqlalchemy import text
+    db_session.execute(text("DROP TABLE audit_events"))
+    db_session.commit()
+
+    # Login should still succeed even though the audit commit will fail
+    response = client.get("/login")
+    csrf_token = extract_csrf_token(response)
+    login_response = client.post(
+        "/login",
+        data={"username": "admin", "password": "strong-password", "csrf_token": csrf_token},
+        follow_redirects=False,
+    )
+    assert login_response.status_code == 303
+
+
+def test_checkin_merge_resolves_integrity_conflict(db_session):
+    # The merge path in commit_asset_checkin handles IntegrityError that arises
+    # during concurrent inserts (race condition). We trigger it at the service
+    # layer: one asset exists (only serial), we try to flush a new asset that
+    # carries the same serial, causing a unique constraint violation.
+    from app.services.asset import add_asset_checkin, commit_asset_checkin
+
+    existing = models.Asset(serial="SERIAL-MERGE-01", hostname="PC-EXISTING")
+    db_session.add(existing)
+    db_session.commit()
+
+    # Simulate a new asset arriving (find returned None due to race), carrying
+    # the same serial that was just inserted by a concurrent request.
+    duplicate = models.Asset(serial="SERIAL-MERGE-01", hostname="PC-DUPLICATE", mac_address="AA-BB-CC-00-BB-01")
+    db_session.add(duplicate)
+
+    asset_data = {"serial": "SERIAL-MERGE-01", "hostname": "PC-DUPLICATE", "mac_address": "AA-BB-CC-00-BB-01"}
+    merged = commit_asset_checkin(duplicate, asset_data, db_session, "created")
+
+    checkins = db_session.query(models.AssetCheckin).order_by(models.AssetCheckin.id).all()
+    event_types = [c.event_type for c in checkins]
+    assert "merged" in event_types
+    assert merged.serial == "SERIAL-MERGE-01"

@@ -1,13 +1,46 @@
+import asyncio
+from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from .config import SECRET_KEY, SESSION_COOKIE_SECURE
+from .config import CHECKIN_RETENTION_DAYS, SECRET_KEY, SESSION_COOKIE_SECURE, TRUSTED_PROXIES
+from .rate_limiting import cleanup_stale_entries
+from .services.asset import purge_old_checkins
 from .routers import auth, checkin, dashboard, exports
 from .routers import audit as audit_router
 from .routers import users as users_router
 
-app = FastAPI(title="Inventário Server")
+
+async def _background_maintenance_task():
+    while True:
+        await asyncio.sleep(6 * 60 * 60)  # every 6 hours
+        cleanup_stale_entries()
+        purge_old_checkins(CHECKIN_RETENTION_DAYS)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Run once at startup, then every 6 hours
+    cleanup_stale_entries()
+    purge_old_checkins(CHECKIN_RETENTION_DAYS)
+    task = asyncio.create_task(_background_maintenance_task())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(title="Inventário Server", docs_url=None, redoc_url=None, lifespan=lifespan)
+
+if TRUSTED_PROXIES:
+    trusted = TRUSTED_PROXIES if TRUSTED_PROXIES == "*" else [ip.strip() for ip in TRUSTED_PROXIES.split(",")]
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=trusted)
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,

@@ -2,7 +2,7 @@ import math
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import or_
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -55,31 +55,34 @@ def dashboard(
     online_after = now - ASSET_ONLINE_WINDOW
     stale_after = now - ASSET_STALE_WINDOW
 
-    communicating_assets = (
-        base_query
-        .filter(models.Asset.ultima_comunicacao >= online_after)
-        .count()
-    )
-    stale_assets = (
-        base_query
-        .filter(models.Asset.ultima_comunicacao < online_after)
-        .filter(models.Asset.ultima_comunicacao >= stale_after)
-        .count()
-    )
-    inactive_assets = (
-        base_query
-        .filter(
-            or_(
-                models.Asset.ultima_comunicacao.is_(None),
-                models.Asset.ultima_comunicacao < stale_after,
-            )
-        )
-        .count()
-    )
+    counts = base_query.with_entities(
+        func.count(case((models.Asset.ultima_comunicacao >= online_after, 1))).label("communicating"),
+        func.count(case((
+            (models.Asset.ultima_comunicacao < online_after) &
+            (models.Asset.ultima_comunicacao >= stale_after), 1,
+        ))).label("stale"),
+        func.count(case((
+            models.Asset.ultima_comunicacao.is_(None) |
+            (models.Asset.ultima_comunicacao < stale_after), 1,
+        ))).label("inactive"),
+        func.count().label("total_matching"),
+    ).one()
+
+    communicating_assets = counts.communicating
+    stale_assets = counts.stale
+    inactive_assets = counts.inactive
+    total_matching_assets = counts.total_matching
+
+    if status == "online":
+        total_assets = communicating_assets
+    elif status == "stale":
+        total_assets = stale_assets
+    elif status == "inactive":
+        total_assets = inactive_assets
+    else:
+        total_assets = total_matching_assets
 
     query = apply_status_filter(base_query, status, now)
-    total_assets = query.count()
-    total_matching_assets = base_query.count()
     status_filter_label = ASSET_STATUS_OPTIONS[status]
     sort_label = ASSET_SORT_LABELS[sort]
     reverse_direction = "desc" if direction == "asc" else "asc"

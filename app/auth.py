@@ -1,39 +1,40 @@
 import hashlib
 import hmac
-import secrets
+
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
+
+_ph = PasswordHasher()
 
 
 def hash_password(password: str) -> str:
-    # Gera um salt aleatório por senha para evitar hashes repetidos entre usuários.
-    salt = secrets.token_hex(16)
-    iterations = 100_000
-
-    # Usa PBKDF2-HMAC-SHA256 para derivar um hash forte a partir da senha informada.
-    password_hash = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        salt.encode("utf-8"),
-        iterations
-    ).hex()
-
-    return f"{iterations}${salt}${password_hash}"
+    return _ph.hash(password)
 
 
-def verify_password(password: str, stored_password_hash: str) -> bool:
+def verify_password(password: str, stored_hash: str) -> bool:
+    # Legacy PBKDF2 hashes: "iterations$salt$hexhash"
+    if stored_hash.startswith("$argon2"):
+        return _verify_argon2(password, stored_hash)
+    return _verify_pbkdf2(password, stored_hash)
+
+
+def _verify_argon2(password: str, stored_hash: str) -> bool:
     try:
-        # Recupera os parâmetros usados no hash salvo para recalcular com a senha enviada.
-        iterations_str, salt, saved_hash = stored_password_hash.split("$")
-        iterations = int(iterations_str)
+        return _ph.verify(stored_hash, password)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
 
-        password_hash = hashlib.pbkdf2_hmac(
+
+def _verify_pbkdf2(password: str, stored_hash: str) -> bool:
+    try:
+        iterations_str, salt, saved_hash = stored_hash.split("$")
+        iterations = int(iterations_str)
+        computed = hashlib.pbkdf2_hmac(
             "sha256",
             password.encode("utf-8"),
             salt.encode("utf-8"),
-            iterations
+            iterations,
         ).hex()
-
-        # Compara os hashes em tempo constante para reduzir risco de timing attack.
-        return hmac.compare_digest(password_hash, saved_hash)
+        return hmac.compare_digest(computed, saved_hash)
     except Exception:
-        # Qualquer formato inválido ou erro no processo invalida a autenticação.
         return False

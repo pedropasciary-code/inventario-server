@@ -4,10 +4,7 @@ from datetime import UTC, datetime
 from fastapi import Request
 
 from .config import DISPLAY_TIMEZONE
-
-
-def utc_now() -> datetime:
-    return datetime.now(UTC)
+from .utils import utc_now
 
 
 def ensure_utc(value: datetime | None) -> datetime | None:
@@ -47,7 +44,7 @@ def parse_network_interfaces(value: str | None) -> list[dict]:
     return [interface for interface in interfaces if isinstance(interface, dict)]
 
 
-def get_client_ip(request: Request) -> str:
+def get_client_ip(request: Request) -> str | None:
     if request.client:
         return request.client.host
-    return "unknown"
+    return None
