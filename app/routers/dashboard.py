@@ -26,6 +26,7 @@ from ..services.asset import (
     normalize_status_filter,
     prepare_assets_for_display,
 )
+from .exports import EXPORT_MAX_ROWS
 from ..templating import templates
 
 router = APIRouter()
@@ -126,6 +127,8 @@ def dashboard(
             "page_size_options": DASHBOARD_PAGE_SIZE_OPTIONS,
             "total_assets": total_assets,
             "total_matching_assets": total_matching_assets,
+            "export_max_rows": EXPORT_MAX_ROWS,
+            "export_is_truncated": total_assets > EXPORT_MAX_ROWS,
             "communicating_assets": communicating_assets,
             "stale_assets": stale_assets,
             "inactive_assets": inactive_assets,

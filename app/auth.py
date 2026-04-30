@@ -11,6 +11,15 @@ def hash_password(password: str) -> str:
     return _ph.hash(password)
 
 
+def password_needs_rehash(stored_hash: str) -> bool:
+    if not stored_hash.startswith("$argon2"):
+        return True
+    try:
+        return _ph.check_needs_rehash(stored_hash)
+    except (VerificationError, InvalidHashError):
+        return True
+
+
 def verify_password(password: str, stored_hash: str) -> bool:
     # Legacy PBKDF2 hashes: "iterations$salt$hexhash"
     if stored_hash.startswith("$argon2"):

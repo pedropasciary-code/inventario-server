@@ -254,6 +254,17 @@
         .empty {
             color: #668086;
         }
+
+        .notice {
+            margin: 0 0 24px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid #e7d7a5;
+            background: #fff8e1;
+            color: #705500;
+            font-size: 14px;
+            line-height: 1.45;
+        }
     </style>
 </head>
 <body>
@@ -281,6 +292,12 @@
                 </form>
             </div>
         </div>
+
+        {% if export_is_truncated %}
+        <div class="notice">
+            A exportacao deste filtro sera limitada aos primeiros {{ export_max_rows }} registros. Refine a busca ou o status para exportar um conjunto menor.
+        </div>
+        {% endif %}
 
         <!-- Indicadores calculados no backend com base na lista filtrada. -->
         <div class="stats">

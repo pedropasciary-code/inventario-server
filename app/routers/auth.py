@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..auth import verify_password
+from ..auth import hash_password, password_needs_rehash, verify_password
 from ..dependencies import get_csrf_token, get_db, get_session_user, validate_csrf_token
 from ..rate_limiting import clear_failed_logins, enforce_login_rate_limit, register_failed_login
 from ..services.audit import record_audit_event
@@ -53,6 +53,9 @@ def login(
         )
 
     clear_failed_logins(request, username)
+    if password_needs_rehash(user.password_hash):
+        user.password_hash = hash_password(password)
+        db.commit()
     record_audit_event(db, "login_success", request, username=user.username)
     request.session.clear()
     request.session["session_user"] = user.username

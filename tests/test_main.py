@@ -239,6 +239,40 @@ def test_login_success_and_failure_record_audit_events(client, db_session, admin
     assert events[1].username == "admin"
 
 
+def test_login_rehashes_legacy_pbkdf2_password(client, db_session):
+    import hashlib
+
+    password = "legacy-password"
+    salt = "legacy-salt"
+    iterations = 100_000
+    password_hash = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    ).hex()
+    user = models.User(
+        username="legacy",
+        password_hash=f"{iterations}${salt}${password_hash}",
+        is_active=True,
+        is_admin=False,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    csrf_token = extract_csrf_token(client.get("/login"))
+    response = client.post(
+        "/login",
+        data={"username": "legacy", "password": password, "csrf_token": csrf_token},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    db_session.refresh(user)
+    assert user.password_hash.startswith("$argon2")
+    assert verify_password(password, user.password_hash) is True
+
+
 def test_dashboard_paginates_and_shows_real_status(client, db_session, admin_user):
     now = datetime.now(UTC)
 
@@ -367,6 +401,37 @@ def test_dashboard_filters_status_and_sorts(client, db_session, admin_user):
     assert "PC-INACTIVE" not in response.text
     assert "Atrasado" in response.text
     assert "10 por página" in response.text
+
+
+def test_dashboard_warns_when_export_will_be_truncated(client, db_session, admin_user, monkeypatch):
+    from app.routers import dashboard as dashboard_router
+
+    monkeypatch.setattr(dashboard_router, "EXPORT_MAX_ROWS", 1)
+    now = datetime.now(UTC)
+    db_session.add_all(
+        [
+            models.Asset(
+                hostname="PC-EXPORT-1",
+                serial="SERIAL-EXPORT-1",
+                mac_address="AA-BB-CC-00-11-01",
+                ultima_comunicacao=now,
+            ),
+            models.Asset(
+                hostname="PC-EXPORT-2",
+                serial="SERIAL-EXPORT-2",
+                mac_address="AA-BB-CC-00-11-02",
+                ultima_comunicacao=now,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert "A exportacao deste filtro sera limitada" in response.text
+    assert "primeiros 1 registros" in response.text
 
 
 def test_csv_export_includes_status_and_formatted_dates(client, db_session, admin_user):

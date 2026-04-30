@@ -124,6 +124,8 @@ AGENT_TOKEN=seu_token_do_agent
 SECRET_KEY=sua_chave_secreta
 SESSION_COOKIE_SECURE=false
 APP_TIMEZONE=America/Sao_Paulo
+TRUSTED_PROXIES=
+CHECKIN_RETENTION_DAYS=90
 ```
 
 - `DATABASE_URL`: conexao usada pela API para acessar o banco.
@@ -131,6 +133,8 @@ APP_TIMEZONE=America/Sao_Paulo
 - `SECRET_KEY`: chave usada para assinar a sessao web.
 - `SESSION_COOKIE_SECURE`: use `true` quando a API estiver publicada com HTTPS.
 - `APP_TIMEZONE`: fuso usado para formatar datas no painel web.
+- `TRUSTED_PROXIES`: lista separada por virgula com IPs de proxies autorizados a definir `X-Forwarded-For`. Deixe vazio sem proxy; use `*` apenas em rede totalmente controlada.
+- `CHECKIN_RETENTION_DAYS`: dias de retencao do historico de check-ins. Use `0` para desativar a limpeza automatica.
 
 ## Executando A API
 
@@ -286,8 +290,8 @@ Protegidos por sessao:
 
 - `GET /dashboard`: lista, filtra, ordena e pagina ativos.
 - `GET /assets/{asset_id}`: exibe detalhes de um ativo.
-- `GET /export/csv`: exporta o inventario em CSV.
-- `GET /export/xlsx`: exporta o inventario em Excel.
+- `GET /export/csv`: exporta o inventario em CSV, limitado a 10.000 linhas por arquivo.
+- `GET /export/xlsx`: exporta o inventario em Excel, limitado a 10.000 linhas por arquivo.
 - `POST /logout`: encerra a sessao.
 
 Protegidos por sessao admin:
@@ -298,7 +302,7 @@ Protegidos por sessao admin:
 - `POST /users/{user_id}/password`: troca senha de usuario do painel.
 - `POST /users/{user_id}/admin`: promove ou rebaixa usuario admin.
 - `GET /audit`: lista eventos de auditoria com filtros e paginacao.
-- `GET /audit/export/csv`: exporta eventos de auditoria filtrados em CSV.
+- `GET /audit/export/csv`: exporta eventos de auditoria filtrados em CSV, limitado a 10.000 linhas por arquivo.
 
 Protegido por token do agent:
 
@@ -396,7 +400,8 @@ A tela `/users` permite criar usuarios, ativar/desativar acessos, alterar senhas
 
 - O `agent` foi implementado para Windows.
 - Use `requirements.txt` para instalar a API e `requirements-agent.txt` para executar ou empacotar o agent.
-- A autenticacao do painel usa sessao assinada com `SECRET_KEY`.
+- A autenticacao do painel usa sessao assinada com `SECRET_KEY`; senhas antigas em PBKDF2 sao migradas automaticamente para Argon2 no proximo login bem-sucedido.
+- Exportacoes acima de 10.000 registros sao truncadas e retornam os headers `X-Export-Row-Limit` e `X-Export-Truncated`; o dashboard avisa quando o filtro atual excede esse limite.
 - Rode `alembic upgrade head` antes de iniciar a API em um banco novo.
 - O script `create_user.py` cria usuario por prompt, argumento ou variaveis de ambiente.
 - Nao publique tokens reais em repositorios compartilhados.
