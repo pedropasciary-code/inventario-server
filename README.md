@@ -220,6 +220,7 @@ Durante a execucao, o agent:
 - registra eventos em `agent/agent.log`
 - salva falhas em `agent/failed_payloads`
 - reenvia payloads pendentes na proxima execucao
+- move payloads invalidos ou com falhas repetidas para `agent/dead_letter_payloads`
 
 Para diagnosticar configuracao, coleta local e conectividade sem enviar check-in:
 
@@ -242,6 +243,8 @@ Para instalar pelo pacote distribuivel:
 4. O agent sera copiado para `C:\RDPSystemAgent`.
 5. A tarefa agendada `RDP System Agent` sera criada para executar no logon.
 
+Em atualizacoes, o instalador preserva `C:\RDPSystemAgent\config.json` quando ele ja existe, cria backup do executavel e da configuracao em `C:\RDPSystemAgent\backup`, e cria as pastas `failed_payloads` e `dead_letter_payloads`.
+
 Para testar apos instalar:
 
 ```powershell
@@ -253,6 +256,8 @@ Verifique o log em:
 ```text
 C:\RDPSystemAgent\agent.log
 ```
+
+Payloads sem envio ficam em `C:\RDPSystemAgent\failed_payloads`. Payloads invalidos ou que excedem o limite de tentativas ficam em `C:\RDPSystemAgent\dead_letter_payloads` para analise manual.
 
 ## Empacotando O Agent
 

@@ -24,6 +24,10 @@ from sender import send_data, load_config, check_api_health
 LOG_FILE = BASE_DIR / "agent.log"
 FAILED_PAYLOADS_DIR = BASE_DIR / "failed_payloads"
 FAILED_PAYLOADS_DIR.mkdir(exist_ok=True)
+DEAD_LETTER_DIR = BASE_DIR / "dead_letter_payloads"
+DEAD_LETTER_DIR.mkdir(exist_ok=True)
+MAX_FAILED_PAYLOADS = 100
+MAX_PAYLOAD_RESEND_ATTEMPTS = 5
 
 
 # Configura logging com rotação para evitar que o log cresça indefinidamente.
@@ -54,9 +58,47 @@ def save_failed_payload(payload):
     file_path = FAILED_PAYLOADS_DIR / f"payload_{timestamp}.json"
 
     with open(file_path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
+        json.dump({"attempts": 0, "payload": payload}, file, ensure_ascii=False, indent=2)
 
     logging.warning(f"Payload salvo para reenvio posterior: {file_path}")
+    enforce_failed_payload_limit()
+
+
+def load_payload_envelope(file_path):
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = json.load(file)
+
+    if isinstance(content, dict) and "payload" in content:
+        return {
+            "attempts": int(content.get("attempts", 0) or 0),
+            "payload": content["payload"],
+        }
+
+    return {"attempts": 0, "payload": content}
+
+
+def write_payload_envelope(file_path, envelope):
+    with open(file_path, "w", encoding="utf-8") as file:
+        json.dump(envelope, file, ensure_ascii=False, indent=2)
+
+
+def move_to_dead_letter(file_path, reason):
+    DEAD_LETTER_DIR.mkdir(exist_ok=True)
+    target_path = DEAD_LETTER_DIR / file_path.name
+    if target_path.exists():
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        target_path = DEAD_LETTER_DIR / f"{file_path.stem}_{timestamp}{file_path.suffix}"
+    file_path.replace(target_path)
+    logging.error(f"Payload movido para dead letter ({reason}): {target_path}")
+
+
+def enforce_failed_payload_limit():
+    failed_files = sorted(FAILED_PAYLOADS_DIR.glob("payload_*.json"))
+    overflow = len(failed_files) - MAX_FAILED_PAYLOADS
+    if overflow <= 0:
+        return
+    for file_path in failed_files[:overflow]:
+        move_to_dead_letter(file_path, "limite de fila excedido")
 
 
 def resend_failed_payloads():
@@ -72,8 +114,8 @@ def resend_failed_payloads():
     for file_path in failed_files:
         try:
             # Recarrega cada payload pendente e remove o arquivo apenas após envio OK.
-            with open(file_path, "r", encoding="utf-8") as file:
-                payload = json.load(file)
+            envelope = load_payload_envelope(file_path)
+            payload = envelope["payload"]
 
             send_data(payload)
             file_path.unlink()
@@ -82,6 +124,18 @@ def resend_failed_payloads():
 
         except Exception as error:
             logging.error(f"Falha ao reenviar {file_path.name}: {error}")
+            try:
+                envelope["attempts"] += 1
+                if envelope["attempts"] >= MAX_PAYLOAD_RESEND_ATTEMPTS:
+                    move_to_dead_letter(file_path, "maximo de tentativas excedido")
+                else:
+                    write_payload_envelope(file_path, envelope)
+            except Exception as update_error:
+                logging.error(f"Falha ao atualizar controle de retry de {file_path.name}: {update_error}")
+                try:
+                    move_to_dead_letter(file_path, "payload invalido")
+                except Exception as dead_letter_error:
+                    logging.error(f"Falha ao mover payload invalido para dead letter: {dead_letter_error}")
 
 
 def diagnose():
