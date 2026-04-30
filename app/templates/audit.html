@@ -26,8 +26,8 @@
                         <span class="nav-caret">⌄</span>
                     </summary>
                     <div class="nav-submenu">
-                        <a class="nav-sublink" href="/audit/export/csv?event_type={{ event_type }}&per_page={{ per_page }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">CSV auditoria</a>
-                        <a class="nav-sublink" href="/export/xlsx">Excel ativos</a>
+                        <a class="nav-sublink" href="/audit/export/csv?event_type={{ event_type }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">CSV auditoria</a>
+                        <a class="nav-sublink" href="/audit/export/xlsx?event_type={{ event_type }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Excel auditoria</a>
                     </div>
                 </details>
                 <form method="post" action="/logout">

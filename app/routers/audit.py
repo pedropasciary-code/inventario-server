@@ -4,6 +4,8 @@ import math
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Font
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -132,6 +134,72 @@ def export_audit_csv(
         media_type="text/csv; charset=utf-8-sig",
         headers={
             "Content-Disposition": "attachment; filename=auditoria.csv",
+            "X-Export-Row-Limit": str(EXPORT_MAX_ROWS),
+            "X-Export-Truncated": str(total_rows > EXPORT_MAX_ROWS).lower(),
+        },
+    )
+
+
+@router.get("/audit/export/xlsx")
+def export_audit_xlsx(
+    request: Request,
+    event_type: str = "all",
+    username: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    db: Session = Depends(get_db),
+):
+    session_user = get_admin_session_user(request, db)
+    if not session_user:
+        return RedirectResponse(url="/login", status_code=303)
+
+    event_type = normalize_audit_event_type(event_type)
+    start_date = parse_date_filter(date_from)
+    end_date = parse_date_filter(date_to)
+    query = build_audit_query(db, event_type, username, start_date, end_date)
+    total_rows = query.count()
+    events = (
+        query
+        .order_by(desc(models.AuditEvent.created_at), desc(models.AuditEvent.id))
+        .limit(EXPORT_MAX_ROWS)
+        .all()
+    )
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Auditoria"
+    headers = ["Data", "Tipo", "Usuario", "IP", "Detalhes"]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for event in events:
+        sheet.append([
+            format_datetime(event.created_at),
+            event.event_type,
+            event.username or "",
+            event.ip_address or "",
+            event.details_json or "{}",
+        ])
+
+    for column_cells in sheet.columns:
+        max_length = 0
+        column_letter = column_cells[0].column_letter
+        for cell in column_cells:
+            value = str(cell.value) if cell.value is not None else ""
+            if len(value) > max_length:
+                max_length = len(value)
+        sheet.column_dimensions[column_letter].width = min(max_length + 2, 60)
+
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=auditoria.xlsx",
             "X-Export-Row-Limit": str(EXPORT_MAX_ROWS),
             "X-Export-Truncated": str(total_rows > EXPORT_MAX_ROWS).lower(),
         },

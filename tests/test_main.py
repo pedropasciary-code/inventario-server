@@ -4,6 +4,8 @@ import json
 import re
 from datetime import UTC, datetime, timedelta
 
+from openpyxl import load_workbook
+
 from app import models
 from app.auth import hash_password, verify_password
 
@@ -596,6 +598,43 @@ def test_audit_csv_export_respects_filters(client, db_session, admin_user):
     assert len(rows) == 1
     assert rows[0]["Tipo"] == "login_failed"
     assert rows[0]["Usuario"] == "admin"
+
+
+def test_audit_xlsx_export_respects_filters(client, db_session, admin_user):
+    db_session.add_all(
+        [
+            models.AuditEvent(
+                event_type="export_csv",
+                username="admin",
+                ip_address="127.0.0.1",
+                details_json=json.dumps({"status": "all"}),
+                created_at=datetime.now(UTC),
+            ),
+            models.AuditEvent(
+                event_type="login_failed",
+                username="operator",
+                ip_address="127.0.0.2",
+                details_json=json.dumps({"reason": "invalid_credentials"}),
+                created_at=datetime.now(UTC),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert login(client).status_code == 303
+
+    response = client.get("/audit/export/xlsx?event_type=export_csv")
+
+    assert response.status_code == 200
+    assert response.headers["X-Export-Row-Limit"] == "10000"
+    assert response.headers["X-Export-Truncated"] == "false"
+    workbook = load_workbook(io.BytesIO(response.content))
+    sheet = workbook.active
+    rows = list(sheet.iter_rows(values_only=True))
+    assert rows[0] == ("Data", "Tipo", "Usuario", "IP", "Detalhes")
+    assert len(rows) == 2
+    assert rows[1][1] == "export_csv"
+    assert rows[1][2] == "admin"
 
 
 def test_users_page_requires_login(client):
