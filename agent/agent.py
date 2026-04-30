@@ -50,7 +50,7 @@ logger.addHandler(console_handler)
 
 def save_failed_payload(payload):
     # Salva o payload em JSON para que uma próxima execução tente reenviar.
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     file_path = FAILED_PAYLOADS_DIR / f"payload_{timestamp}.json"
 
     with open(file_path, "w", encoding="utf-8") as file:

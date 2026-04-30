@@ -4,5 +4,6 @@
   "agent_token": "substitua_pelo_mesmo_AGENT_TOKEN_do_servidor",
   "agent_version": "1.0.0",
   "max_retries": 3,
-  "retry_delay_seconds": 5
+  "retry_delay_seconds": 5,
+  "health_check_before_send": false
 }

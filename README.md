@@ -187,7 +187,8 @@ Use `agent/config.example.json` como modelo e crie uma copia local chamada `conf
   "agent_token": "seu_token_do_agent",
   "agent_version": "1.0.0",
   "max_retries": 3,
-  "retry_delay_seconds": 5
+  "retry_delay_seconds": 5,
+  "health_check_before_send": false
 }
 ```
 
@@ -197,6 +198,7 @@ Use `agent/config.example.json` como modelo e crie uma copia local chamada `conf
 - `agent_version`: versao informada junto com cada check-in.
 - `max_retries`: numero maximo de tentativas de envio.
 - `retry_delay_seconds`: intervalo entre tentativas quando o envio falha.
+- `health_check_before_send`: quando `true`, valida o endpoint de health antes do check-in.
 
 O valor de `agent_token` precisa ser igual ao `AGENT_TOKEN` configurado no `.env` da API.
 
