@@ -167,6 +167,8 @@ def asset_detail(asset_id: int, request: Request, db: Session = Depends(get_db))
         "asset_detail.html",
         {
             "asset": asset,
+            "session_user": session_user,
+            "csrf_token": get_csrf_token(request),
             "network_interfaces": parse_network_interfaces(asset.network_interfaces),
             "recent_checkins": recent_checkins,
         },

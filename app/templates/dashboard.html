@@ -4,417 +4,174 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RDP SYSTEM - Dashboard</title>
-    <style>
-        /* Normaliza o cálculo de largura dos elementos da página. */
-        * {
-            box-sizing: border-box;
-        }
-
-        /* Define a base visual do painel após o login. */
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f8f8;
-            color: #2f505f;
-        }
-
-        /* Espaçamento externo geral de todo o dashboard. */
-        .layout {
-            padding: 24px;
-        }
-
-        /* Cabeçalho com identificação do sistema e ações principais. */
-        .header {
-            background: linear-gradient(135deg, #2f505f, #4c8c9c);
-            color: white;
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
-        }
-
-        /* Alinha logo e texto institucional dentro do cabeçalho. */
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .header-logo {
-            width: 58px;
-            height: 58px;
-            object-fit: contain;
-            background: white;
-            border-radius: 14px;
-            padding: 6px;
-        }
-
-        .header h1 {
-            margin: 0 0 6px;
-            font-size: 30px;
-        }
-
-        .header p {
-            margin: 0;
-            color: #dceaea;
-        }
-
-        /* Agrupa botões de exportação e logout. */
-        .actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        /* Aparência compartilhada entre links de ação e botões. */
-        a.button, button.button {
-            text-decoration: none;
-            padding: 10px 14px;
-            background: white;
-            color: #2f505f;
-            border-radius: 12px;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        a.button:hover, button.button:hover {
-            background: #adc7c7;
-        }
-
-        /* Grade responsiva com os indicadores do inventário filtrado. */
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-
-        /* Cartões numéricos usados nos totais do topo. */
-        .card {
-            background: white;
-            border-radius: 18px;
-            padding: 20px;
-            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
-            border: 1px solid #e4eeee;
-        }
-
-        .card-title {
-            font-size: 14px;
-            color: #668086;
-            margin-bottom: 8px;
-        }
-
-        .card-value {
-            font-size: 30px;
-            font-weight: bold;
-            color: #2f505f;
-        }
-
-        /* Blocos brancos reutilizados para busca, tabela e estado vazio. */
-        .search-box, .table-box, .empty {
-            background: white;
-            border-radius: 18px;
-            padding: 18px;
-            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
-            border: 1px solid #e4eeee;
-        }
-
-        .search-box {
-            margin-bottom: 24px;
-        }
-
-        /* Formulário horizontal que envia o filtro q para /dashboard. */
-        form.search-form {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        input[type="text"], select {
-            flex: 1;
-            min-width: 260px;
-            padding: 12px 14px;
-            border: 1px solid #adc7c7;
-            border-radius: 12px;
-            font-size: 14px;
-            background: #fbfdfd;
-        }
-
-        select {
-            min-width: 150px;
-        }
-
-        input[type="text"]:focus, select:focus {
-            outline: none;
-            border-color: #4c8c9c;
-            box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.12);
-        }
-
-        /* Permite rolagem horizontal da tabela em telas menores. */
-        .table-box {
-            overflow-x: auto;
-        }
-
-        /* Tabela principal de ativos retornados pelo backend. */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 980px;
-        }
-
-        th, td {
-            padding: 14px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e6eeee;
-            font-size: 14px;
-        }
-
-        th {
-            color: #4f676d;
-            background: #f6fbfb;
-        }
-
-        th a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        th a:hover {
-            text-decoration: underline;
-        }
-
-        tr:hover {
-            background: #f8fcfc;
-        }
-
-        /* Link para abrir a página de detalhes de cada ativo. */
-        .hostname-link {
-            text-decoration: none;
-            color: #4c8c9c;
-            font-weight: bold;
-        }
-
-        .hostname-link:hover {
-            text-decoration: underline;
-        }
-
-        /* Marcador visual de status exibido em cada linha da tabela. */
-        .badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .badge.online {
-            background: #dff0ec;
-            color: #1f6f57;
-        }
-
-        .badge.stale {
-            background: #fff1d6;
-            color: #8a5a00;
-        }
-
-        .badge.inactive {
-            background: #fde8e8;
-            color: #991b1b;
-        }
-
-        .pagination {
-            margin-top: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            color: #668086;
-            font-size: 14px;
-        }
-
-        .pagination-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .pagination .button.disabled {
-            opacity: 0.45;
-            pointer-events: none;
-        }
-
-        .empty {
-            color: #668086;
-        }
-
-        .notice {
-            margin: 0 0 24px;
-            padding: 14px 16px;
-            border-radius: 14px;
-            border: 1px solid #e7d7a5;
-            background: #fff8e1;
-            color: #705500;
-            font-size: 14px;
-            line-height: 1.45;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
-    <div class="layout">
-        <!-- Cabeçalho do painel com usuário logado e ações de exportação. -->
-        <div class="header">
-            <div class="header-left">
-                <img class="header-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img class="brand-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
                 <div>
-                    <h1>RDP SYSTEM</h1>
-                    <p>Painel de Inventário • Usuário: {{ session_user }}</p>
+                    <div class="brand-name">RDP SYSTEM</div>
+                    <div class="brand-subtitle">Inventário Corporativo</div>
                 </div>
             </div>
-
-            <div class="actions">
+            <nav class="sidebar-nav" aria-label="Menu principal">
+                <a class="nav-link active" href="/dashboard"><span class="nav-icon">D</span>Dashboard</a>
                 {% if session_is_admin %}
-                <a class="button" href="/users">Usuarios</a>
-                <a class="button" href="/audit">Auditoria</a>
+                <a class="nav-link" href="/users"><span class="nav-icon">U</span>Usuários</a>
+                <a class="nav-link" href="/audit"><span class="nav-icon">A</span>Auditoria</a>
                 {% endif %}
-                <a class="button" href="/export/csv?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Exportar CSV</a>
-                <a class="button" href="/export/xlsx?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Exportar Excel</a>
-                <form method="post" action="/logout" style="margin:0;">
+                <details class="nav-group">
+                    <summary class="nav-link nav-parent">
+                        <span class="nav-parent-main"><span class="nav-icon">E</span>Exportações</span>
+                        <span class="nav-caret">⌄</span>
+                    </summary>
+                    <div class="nav-submenu">
+                        <a class="nav-sublink" href="/export/csv?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">CSV</a>
+                        <a class="nav-sublink" href="/export/xlsx?status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}">Excel</a>
+                    </div>
+                </details>
+                <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="button" type="submit">Sair</button>
+                    <button class="nav-button" type="submit"><span class="nav-icon">S</span>Sair</button>
                 </form>
-            </div>
-        </div>
+            </nav>
+        </aside>
 
-        {% if export_is_truncated %}
-        <div class="notice">
-            A exportacao deste filtro sera limitada aos primeiros {{ export_max_rows }} registros. Refine a busca ou o status para exportar um conjunto menor.
-        </div>
-        {% endif %}
-
-        <!-- Indicadores calculados no backend com base na lista filtrada. -->
-        <div class="stats">
-            <div class="card">
-                <div class="card-title">Total de ativos</div>
-                <div class="card-value">{{ total_assets }}</div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Comunicando</div>
-                <div class="card-value">{{ communicating_assets }}</div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Atrasados</div>
-                <div class="card-value">{{ stale_assets }}</div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Inativos</div>
-                <div class="card-value">{{ inactive_assets }}</div>
-            </div>
-        </div>
-
-        <!-- Campo de busca que filtra ativos por texto em múltiplas colunas. -->
-        <div class="search-box">
-            <form class="search-form" method="get" action="/dashboard">
-                <input
-                    type="text"
-                    name="q"
-                    placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
-                    value="{{ q or '' }}"
-                >
-                <select name="status">
-                    {% for status_value, status_label in status_options.items() %}
-                    <option value="{{ status_value }}"{% if status == status_value %} selected{% endif %}>{{ status_label }}</option>
-                    {% endfor %}
-                </select>
-                <select name="per_page">
-                    {% for option in page_size_options %}
-                    <option value="{{ option }}"{% if per_page == option %} selected{% endif %}>{{ option }} por página</option>
-                    {% endfor %}
-                </select>
-                <input type="hidden" name="sort" value="{{ sort }}">
-                <input type="hidden" name="direction" value="{{ direction }}">
-                <button class="button" type="submit">Buscar</button>
-                <a class="button" href="/dashboard">Limpar</a>
-            </form>
-        </div>
-
-        <!-- Renderiza a tabela quando há ativos ou uma mensagem quando a lista vem vazia. -->
-        {% if assets %}
-        <div class="table-box">
-            <table>
-                <thead>
-                    <tr>
-                        <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=hostname&direction={{ sort_links['hostname'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Hostname{% if sort == "hostname" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
-                        <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=usuario&direction={{ sort_links['usuario'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Usuário{% if sort == "usuario" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
-                        <th>Serial</th>
-                        <th>Fabricante</th>
-                        <th>Modelo</th>
-                        <th>CPU</th>
-                        <th>RAM</th>
-                        <th>IP</th>
-                        <th>Status</th>
-                        <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=ultima_comunicacao&direction={{ sort_links['ultima_comunicacao'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Última comunicação{% if sort == "ultima_comunicacao" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for asset in assets %}
-                    <tr>
-                        <td>
-                            <a class="hostname-link" href="/assets/{{ asset.id }}">
-                                {{ asset.hostname or "Sem hostname" }}
-                            </a>
-                        </td>
-                        <td>{{ asset.usuario or "" }}</td>
-                        <td>{{ asset.serial or "" }}</td>
-                        <td>{{ asset.fabricante or "" }}</td>
-                        <td>{{ asset.modelo or "" }}</td>
-                        <td>{{ asset.cpu or "" }}</td>
-                        <td>{{ asset.ram or "" }}</td>
-                        <td>{{ asset.ip or "" }}</td>
-                        <td><span class="badge {{ asset.dashboard_status['class'] }}">{{ asset.dashboard_status['label'] }}</span></td>
-                        <td>{{ asset.ultima_comunicacao|datetime_br }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-            <div class="pagination">
-                <div>
-                    Exibindo {{ first_item }}-{{ last_item }} de {{ total_assets }} ativos
+        <main class="content">
+            <header class="topbar">
+                <div class="page-title">
+                    <h1>Dashboard</h1>
+                    <p>Painel de Inventário de Ativos</p>
                 </div>
-                <div class="pagination-actions">
-                    <a
-                        class="button{% if not has_previous_page %} disabled{% endif %}"
-                        href="/dashboard?page={{ page - 1 }}&per_page={{ per_page }}&status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-                    >
-                        Anterior
-                    </a>
-                    <span>Página {{ page }} de {{ total_pages }}</span>
-                    <a
-                        class="button{% if not has_next_page %} disabled{% endif %}"
-                        href="/dashboard?page={{ page + 1 }}&per_page={{ per_page }}&status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}"
-                    >
-                        Próxima
-                    </a>
-                </div>
+                <div class="topbar-user">Usuário: {{ session_user }}</div>
+            </header>
+
+            {% if export_is_truncated %}
+            <div class="notice">
+                A exportacao deste filtro sera limitada aos primeiros {{ export_max_rows }} registros. Refine a busca ou o status para exportar um conjunto menor.
             </div>
-        </div>
-        {% else %}
-        <!-- Estado vazio para busca sem resultado ou banco ainda sem check-ins. -->
-        <div class="empty">
-            Nenhum ativo encontrado.
-        </div>
-        {% endif %}
+            {% endif %}
+
+            <section class="stats" aria-label="Resumo dos ativos">
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-label">Total</div>
+                        <div class="stat-icon total">T</div>
+                    </div>
+                    <div class="stat-value">{{ total_assets }}</div>
+                    <div class="stat-copy">Ativos dentro do filtro atual</div>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-label">Comunicando</div>
+                        <div class="stat-icon online">C</div>
+                    </div>
+                    <div class="stat-value">{{ communicating_assets }}</div>
+                    <div class="stat-copy">Check-in nas últimas 24h</div>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-label">Atrasados</div>
+                        <div class="stat-icon stale">A</div>
+                    </div>
+                    <div class="stat-value">{{ stale_assets }}</div>
+                    <div class="stat-copy">Sem check-in recente</div>
+                </article>
+                <article class="stat-card">
+                    <div class="stat-head">
+                        <div class="stat-label">Inativos</div>
+                        <div class="stat-icon inactive">I</div>
+                    </div>
+                    <div class="stat-value">{{ inactive_assets }}</div>
+                    <div class="stat-copy">Mais de 7 dias sem comunicação</div>
+                </article>
+            </section>
+
+            <section class="panel">
+                <form class="filter-bar" method="get" action="/dashboard">
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Buscar por hostname, usuário, serial, fabricante, modelo ou IP"
+                        value="{{ q or '' }}"
+                    >
+                    <select name="status">
+                        {% for status_value, status_label in status_options.items() %}
+                        <option value="{{ status_value }}"{% if status == status_value %} selected{% endif %}>{{ status_label }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="per_page">
+                        {% for option in page_size_options %}
+                        <option value="{{ option }}"{% if per_page == option %} selected{% endif %}>{{ option }} por página</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="sort" value="{{ sort }}">
+                    <input type="hidden" name="direction" value="{{ direction }}">
+                    <button class="button primary" type="submit">Buscar</button>
+                    <a class="button outline" href="/dashboard">Limpar</a>
+                </form>
+            </section>
+
+            {% if assets %}
+            <section class="table-box">
+                <table>
+                    <thead>
+                        <tr>
+                            <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=hostname&direction={{ sort_links['hostname'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Hostname{% if sort == "hostname" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
+                            <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=usuario&direction={{ sort_links['usuario'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Usuário{% if sort == "usuario" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
+                            <th>Serial</th>
+                            <th>Fabricante</th>
+                            <th>Modelo</th>
+                            <th>CPU</th>
+                            <th>RAM</th>
+                            <th>IP</th>
+                            <th>Status</th>
+                            <th><a href="/dashboard?page=1&per_page={{ per_page }}&status={{ status }}&sort=ultima_comunicacao&direction={{ sort_links['ultima_comunicacao'] }}{% if q %}&q={{ q|urlencode }}{% endif %}">Última comunicação{% if sort == "ultima_comunicacao" %} {{ "↑" if direction == "asc" else "↓" }}{% endif %}</a></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in assets %}
+                        <tr>
+                            <td><a class="hostname-link" href="/assets/{{ asset.id }}">{{ asset.hostname or "Sem hostname" }}</a></td>
+                            <td>{{ asset.usuario or "" }}</td>
+                            <td>{{ asset.serial or "" }}</td>
+                            <td>{{ asset.fabricante or "" }}</td>
+                            <td>{{ asset.modelo or "" }}</td>
+                            <td>{{ asset.cpu or "" }}</td>
+                            <td>{{ asset.ram or "" }}</td>
+                            <td>{{ asset.ip or "" }}</td>
+                            <td><span class="badge {{ asset.dashboard_status['class'] }}">{{ asset.dashboard_status['label'] }}</span></td>
+                            <td>{{ asset.ultima_comunicacao|datetime_br }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="pagination">
+                    <div>Exibindo {{ first_item }}-{{ last_item }} de {{ total_assets }} ativos</div>
+                    <div class="pagination-actions">
+                        <a
+                            class="button outline{% if not has_previous_page %} disabled{% endif %}"
+                            href="/dashboard?page={{ page - 1 }}&per_page={{ per_page }}&status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                        >
+                            Anterior
+                        </a>
+                        <span>Página {{ page }} de {{ total_pages }}</span>
+                        <a
+                            class="button outline{% if not has_next_page %} disabled{% endif %}"
+                            href="/dashboard?page={{ page + 1 }}&per_page={{ per_page }}&status={{ status }}&sort={{ sort }}&direction={{ direction }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+                        >
+                            Próxima
+                        </a>
+                    </div>
+                </div>
+            </section>
+            {% else %}
+            <div class="empty">Nenhum ativo encontrado.</div>
+            {% endif %}
+        </main>
     </div>
 </body>
 </html>

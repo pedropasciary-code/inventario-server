@@ -4,242 +4,130 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RDP SYSTEM - Detalhe do Ativo</title>
-    <style>
-        /* Normaliza o cálculo de largura dos elementos da página. */
-        * {
-            box-sizing: border-box;
-        }
-
-        /* Base visual da tela de detalhes, alinhada ao dashboard. */
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f8f8;
-            color: #2f505f;
-        }
-
-        /* Espaçamento externo geral da página. */
-        .layout {
-            padding: 24px;
-        }
-
-        /* Cabeçalho com nome do sistema, ativo atual e botão de retorno. */
-        .header {
-            background: linear-gradient(135deg, #2f505f, #4c8c9c);
-            color: white;
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-            box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
-        }
-
-        .header h1 {
-            margin: 0 0 8px;
-        }
-
-        .header p {
-            margin: 0;
-            color: #dceaea;
-        }
-
-        a.button {
-            text-decoration: none;
-            padding: 10px 14px;
-            background: white;
-            color: #2f505f;
-            border-radius: 12px;
-            font-weight: bold;
-        }
-
-        a.button:hover {
-            background: #adc7c7;
-        }
-
-        /* Grade responsiva que distribui os grupos de informações do ativo. */
-        .details-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 16px;
-        }
-
-        /* Cartão usado para cada categoria de dados do equipamento. */
-        .card {
-            background: white;
-            border-radius: 18px;
-            padding: 20px;
-            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
-            border: 1px solid #e4eeee;
-        }
-
-        .card h2 {
-            margin-top: 0;
-            font-size: 18px;
-            margin-bottom: 16px;
-            color: #2f505f;
-        }
-
-        /* Linha individual de metadado: rótulo pequeno e valor em destaque. */
-        .detail-item {
-            margin-bottom: 12px;
-        }
-
-        .detail-label {
-            display: block;
-            font-size: 13px;
-            color: #668086;
-            margin-bottom: 4px;
-        }
-
-        .detail-value {
-            font-size: 15px;
-            font-weight: bold;
-            word-break: break-word;
-            color: #2f505f;
-        }
-
-        .interface-list {
-            display: grid;
-            gap: 12px;
-        }
-
-        .interface-item {
-            border: 1px solid #e4eeee;
-            border-radius: 12px;
-            padding: 12px;
-            background: #f8fcfc;
-        }
-
-        .interface-name {
-            font-weight: bold;
-            margin-bottom: 8px;
-        }
-
-        .interface-meta {
-            display: grid;
-            gap: 6px;
-            font-size: 14px;
-        }
-
-        .checkin-list {
-            display: grid;
-            gap: 10px;
-        }
-
-        .checkin-item {
-            border-left: 4px solid #4c8c9c;
-            padding: 10px 12px;
-            background: #f8fcfc;
-            border-radius: 10px;
-        }
-
-        .checkin-title {
-            font-weight: bold;
-            margin-bottom: 6px;
-        }
-
-        .checkin-meta {
-            color: #668086;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
-    <div class="layout">
-        <!-- Identifica o ativo aberto e oferece navegação de volta ao dashboard. -->
-        <div class="header">
-            <div>
-                <h1>RDP SYSTEM</h1>
-                <p>Detalhe do ativo • {{ asset.hostname or "Sem hostname" }}</p>
-            </div>
-
-            <a class="button" href="/dashboard">Voltar</a>
-        </div>
-
-        <!-- Dados do ativo agrupados por assunto para facilitar leitura e suporte. -->
-        <div class="details-grid">
-            <div class="card">
-                <h2>Identificação</h2>
-                <div class="detail-item"><span class="detail-label">ID</span><span class="detail-value">{{ asset.id }}</span></div>
-                <div class="detail-item"><span class="detail-label">Hostname</span><span class="detail-value">{{ asset.hostname or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Usuário</span><span class="detail-value">{{ asset.usuario or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Serial</span><span class="detail-value">{{ asset.serial or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Fabricante</span><span class="detail-value">{{ asset.fabricante or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Modelo</span><span class="detail-value">{{ asset.modelo or "" }}</span></div>
-            </div>
-
-            <div class="card">
-                <h2>Sistema e Hardware</h2>
-                <div class="detail-item"><span class="detail-label">CPU</span><span class="detail-value">{{ asset.cpu or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">RAM</span><span class="detail-value">{{ asset.ram or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Sistema</span><span class="detail-value">{{ asset.sistema or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Versão Windows</span><span class="detail-value">{{ asset.versao_windows or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Arquitetura</span><span class="detail-value">{{ asset.arquitetura or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Placa-mãe</span><span class="detail-value">{{ asset.motherboard or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">BIOS</span><span class="detail-value">{{ asset.bios_version or "" }}</span></div>
-            </div>
-
-            <div class="card">
-                <h2>Rede e Disco</h2>
-                <div class="detail-item"><span class="detail-label">IP</span><span class="detail-value">{{ asset.ip or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">MAC Address</span><span class="detail-value">{{ asset.mac_address or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Disco Total</span><span class="detail-value">{{ asset.disco_total_gb or "" }}</span></div>
-                <div class="detail-item"><span class="detail-label">Disco Livre</span><span class="detail-value">{{ asset.disco_livre_gb or "" }}</span></div>
-            </div>
-
-            <div class="card">
-                <h2>Interfaces de Rede</h2>
-                {% if network_interfaces %}
-                <div class="interface-list">
-                    {% for interface in network_interfaces %}
-                    <div class="interface-item">
-                        <div class="interface-name">{{ interface.name or "Interface sem nome" }}</div>
-                        <div class="interface-meta">
-                            <span>MAC: {{ interface.mac_address or "" }}</span>
-                            <span>IPs: {{ ", ".join(interface.ip_addresses or []) }}</span>
-                            <span>Tipo: {{ "Virtual" if interface.is_virtual else "Física" }}</span>
-                        </div>
-                    </div>
-                    {% endfor %}
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img class="brand-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+                <div>
+                    <div class="brand-name">RDP SYSTEM</div>
+                    <div class="brand-subtitle">Inventário Corporativo</div>
                 </div>
-                {% else %}
-                <div class="detail-item"><span class="detail-value">Nenhuma interface registrada.</span></div>
-                {% endif %}
             </div>
-
-            <div class="card">
-                <h2>Comunicação</h2>
-                <div class="detail-item"><span class="detail-label">Último Boot</span><span class="detail-value">{{ asset.ultimo_boot|datetime_br }}</span></div>
-                <div class="detail-item"><span class="detail-label">Última Comunicação</span><span class="detail-value">{{ asset.ultima_comunicacao|datetime_br }}</span></div>
-            </div>
-
-            <div class="card">
-                <h2>Histórico de Check-ins</h2>
-                {% if recent_checkins %}
-                <div class="checkin-list">
-                    {% for checkin in recent_checkins %}
-                    <div class="checkin-item">
-                        <div class="checkin-title">{{ checkin.created_at|datetime_br }} • {{ checkin.event_type }}</div>
-                        <div class="checkin-meta">
-                            Hostname: {{ checkin.hostname or "" }}<br>
-                            Usuário: {{ checkin.usuario or "" }}<br>
-                            IP: {{ checkin.ip or "" }}<br>
-                            MAC: {{ checkin.mac_address or "" }}<br>
-                            Agent: {{ checkin.agent_version or "" }}
-                        </div>
+            <nav class="sidebar-nav" aria-label="Menu principal">
+                <a class="nav-link" href="/dashboard"><span class="nav-icon">D</span>Dashboard</a>
+                <a class="nav-link" href="/users"><span class="nav-icon">U</span>Usuários</a>
+                <a class="nav-link" href="/audit"><span class="nav-icon">A</span>Auditoria</a>
+                <details class="nav-group">
+                    <summary class="nav-link nav-parent">
+                        <span class="nav-parent-main"><span class="nav-icon">E</span>Exportações</span>
+                        <span class="nav-caret">⌄</span>
+                    </summary>
+                    <div class="nav-submenu">
+                        <a class="nav-sublink" href="/export/csv">CSV</a>
+                        <a class="nav-sublink" href="/export/xlsx">Excel</a>
                     </div>
-                    {% endfor %}
+                </details>
+                <form method="post" action="/logout">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="nav-button" type="submit"><span class="nav-icon">S</span>Sair</button>
+                </form>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header class="topbar">
+                <div class="page-title">
+                    <h1>{{ asset.hostname or "Sem hostname" }}</h1>
+                    <p>Detalhe técnico do ativo no inventário</p>
                 </div>
-                {% else %}
-                <div class="detail-item"><span class="detail-value">Nenhum check-in registrado.</span></div>
-                {% endif %}
-            </div>
-        </div>
+                <div class="actions">
+                    <div class="topbar-user">Usuário: {{ session_user }}</div>
+                    <a class="button outline" href="/dashboard">Voltar</a>
+                </div>
+            </header>
+
+            <section class="details-grid">
+                <article class="info-card">
+                    <h2>Identificação</h2>
+                    <div class="detail-item"><span class="detail-label">ID</span><span class="detail-value">{{ asset.id }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Hostname</span><span class="detail-value">{{ asset.hostname or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Usuário</span><span class="detail-value">{{ asset.usuario or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Serial</span><span class="detail-value">{{ asset.serial or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Fabricante</span><span class="detail-value">{{ asset.fabricante or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Modelo</span><span class="detail-value">{{ asset.modelo or "" }}</span></div>
+                </article>
+
+                <article class="info-card">
+                    <h2>Sistema e Hardware</h2>
+                    <div class="detail-item"><span class="detail-label">CPU</span><span class="detail-value">{{ asset.cpu or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">RAM</span><span class="detail-value">{{ asset.ram or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Sistema</span><span class="detail-value">{{ asset.sistema or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Versão Windows</span><span class="detail-value">{{ asset.versao_windows or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Arquitetura</span><span class="detail-value">{{ asset.arquitetura or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Placa-mãe</span><span class="detail-value">{{ asset.motherboard or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">BIOS</span><span class="detail-value">{{ asset.bios_version or "" }}</span></div>
+                </article>
+
+                <article class="info-card">
+                    <h2>Rede e Disco</h2>
+                    <div class="detail-item"><span class="detail-label">IP</span><span class="detail-value">{{ asset.ip or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">MAC Address</span><span class="detail-value">{{ asset.mac_address or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Disco Total</span><span class="detail-value">{{ asset.disco_total_gb or "" }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Disco Livre</span><span class="detail-value">{{ asset.disco_livre_gb or "" }}</span></div>
+                </article>
+
+                <article class="info-card">
+                    <h2>Interfaces de Rede</h2>
+                    {% if network_interfaces %}
+                    <div class="interface-list">
+                        {% for interface in network_interfaces %}
+                        <div class="interface-item">
+                            <div class="interface-name">{{ interface.name or "Interface sem nome" }}</div>
+                            <div class="interface-meta">
+                                <span>MAC: {{ interface.mac_address or "" }}</span>
+                                <span>IPs: {{ ", ".join(interface.ip_addresses or []) }}</span>
+                                <span>Tipo: {{ "Virtual" if interface.is_virtual else "Física" }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="detail-value">Nenhuma interface registrada.</div>
+                    {% endif %}
+                </article>
+
+                <article class="info-card">
+                    <h2>Comunicação</h2>
+                    <div class="detail-item"><span class="detail-label">Último Boot</span><span class="detail-value">{{ asset.ultimo_boot|datetime_br }}</span></div>
+                    <div class="detail-item"><span class="detail-label">Última Comunicação</span><span class="detail-value">{{ asset.ultima_comunicacao|datetime_br }}</span></div>
+                </article>
+
+                <article class="info-card">
+                    <h2>Histórico de Check-ins</h2>
+                    {% if recent_checkins %}
+                    <div class="checkin-list">
+                        {% for checkin in recent_checkins %}
+                        <div class="checkin-item">
+                            <div class="checkin-title">{{ checkin.created_at|datetime_br }} - {{ checkin.event_type }}</div>
+                            <div class="checkin-meta">
+                                Hostname: {{ checkin.hostname or "" }}<br>
+                                Usuário: {{ checkin.usuario or "" }}<br>
+                                IP: {{ checkin.ip or "" }}<br>
+                                MAC: {{ checkin.mac_address or "" }}<br>
+                                Agent: {{ checkin.agent_version or "" }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="detail-value">Nenhum check-in registrado.</div>
+                    {% endif %}
+                </article>
+            </section>
+        </main>
     </div>
 </body>
 </html>

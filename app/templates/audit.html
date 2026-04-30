@@ -4,277 +4,124 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RDP SYSTEM - Auditoria</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #f4f8f8;
-            color: #2f505f;
-        }
-
-        .layout {
-            padding: 24px;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #2f505f, #4c8c9c);
-            color: white;
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            box-shadow: 0 14px 30px rgba(47, 80, 95, 0.15);
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .header-logo {
-            width: 58px;
-            height: 58px;
-            object-fit: contain;
-            background: white;
-            border-radius: 14px;
-            padding: 6px;
-        }
-
-        .header h1 {
-            margin: 0 0 6px;
-            font-size: 30px;
-        }
-
-        .header p {
-            margin: 0;
-            color: #dceaea;
-        }
-
-        .actions, .pagination-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        a.button, button.button {
-            text-decoration: none;
-            padding: 10px 14px;
-            background: white;
-            color: #2f505f;
-            border-radius: 12px;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        a.button:hover, button.button:hover {
-            background: #adc7c7;
-        }
-
-        .filters, .table-box, .empty {
-            background: white;
-            border-radius: 18px;
-            padding: 18px;
-            box-shadow: 0 10px 25px rgba(47, 80, 95, 0.08);
-            border: 1px solid #e4eeee;
-        }
-
-        .filters {
-            margin-bottom: 24px;
-        }
-
-        form.filter-form {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        input[type="text"], input[type="date"], select {
-            flex: 1;
-            min-width: 170px;
-            padding: 12px 14px;
-            border: 1px solid #adc7c7;
-            border-radius: 12px;
-            font-size: 14px;
-            background: #fbfdfd;
-        }
-
-        input[type="text"]:focus, input[type="date"]:focus, select:focus {
-            outline: none;
-            border-color: #4c8c9c;
-            box-shadow: 0 0 0 3px rgba(76, 140, 156, 0.12);
-        }
-
-        .table-box {
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 980px;
-        }
-
-        th, td {
-            padding: 14px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e6eeee;
-            font-size: 14px;
-            vertical-align: top;
-        }
-
-        th {
-            color: #4f676d;
-            background: #f6fbfb;
-        }
-
-        tr:hover {
-            background: #f8fcfc;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 12px;
-            font-weight: bold;
-            background: #dff0ec;
-            color: #1f6f57;
-            white-space: nowrap;
-        }
-
-        pre {
-            margin: 0;
-            white-space: pre-wrap;
-            word-break: break-word;
-            font-family: Consolas, monospace;
-            color: #2f505f;
-        }
-
-        .pagination {
-            margin-top: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            color: #668086;
-            font-size: 14px;
-        }
-
-        .pagination .button.disabled {
-            opacity: 0.45;
-            pointer-events: none;
-        }
-
-        .empty {
-            color: #668086;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
-    <div class="layout">
-        <div class="header">
-            <div class="header-left">
-                <img class="header-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img class="brand-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
                 <div>
-                    <h1>Auditoria</h1>
-                    <p>Eventos operacionais do inventario - Usuario: {{ session_user }}</p>
+                    <div class="brand-name">RDP SYSTEM</div>
+                    <div class="brand-subtitle">Inventário Corporativo</div>
                 </div>
             </div>
-
-            <div class="actions">
-                <a class="button" href="/dashboard">Dashboard</a>
-                <a class="button" href="/audit/export/csv?event_type={{ event_type }}&per_page={{ per_page }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">Exportar CSV</a>
-                <form method="post" action="/logout" style="margin:0;">
+            <nav class="sidebar-nav" aria-label="Menu principal">
+                <a class="nav-link" href="/dashboard"><span class="nav-icon">D</span>Dashboard</a>
+                <a class="nav-link" href="/users"><span class="nav-icon">U</span>Usuários</a>
+                <a class="nav-link active" href="/audit"><span class="nav-icon">A</span>Auditoria</a>
+                <details class="nav-group">
+                    <summary class="nav-link nav-parent">
+                        <span class="nav-parent-main"><span class="nav-icon">E</span>Exportações</span>
+                        <span class="nav-caret">⌄</span>
+                    </summary>
+                    <div class="nav-submenu">
+                        <a class="nav-sublink" href="/audit/export/csv?event_type={{ event_type }}&per_page={{ per_page }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">CSV auditoria</a>
+                        <a class="nav-sublink" href="/export/xlsx">Excel ativos</a>
+                    </div>
+                </details>
+                <form method="post" action="/logout">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="button" type="submit">Sair</button>
+                    <button class="nav-button" type="submit"><span class="nav-icon">S</span>Sair</button>
                 </form>
-            </div>
-        </div>
+            </nav>
+        </aside>
 
-        <div class="filters">
-            <form class="filter-form" method="get" action="/audit">
-                <select name="event_type">
-                    {% for value, label in event_options.items() %}
-                    <option value="{{ value }}"{% if event_type == value %} selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                </select>
-                <input type="text" name="username" placeholder="Usuario" value="{{ username or '' }}">
-                <input type="date" name="date_from" value="{{ date_from or '' }}">
-                <input type="date" name="date_to" value="{{ date_to or '' }}">
-                <select name="per_page">
-                    {% for option in page_size_options %}
-                    <option value="{{ option }}"{% if per_page == option %} selected{% endif %}>{{ option }} por pagina</option>
-                    {% endfor %}
-                </select>
-                <button class="button" type="submit">Filtrar</button>
-                <a class="button" href="/audit">Limpar</a>
-            </form>
-        </div>
-
-        {% if events %}
-        <div class="table-box">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Tipo</th>
-                        <th>Usuario</th>
-                        <th>IP</th>
-                        <th>Detalhes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for event in events %}
-                    <tr>
-                        <td>{{ event.created_at|datetime_br }}</td>
-                        <td><span class="badge">{{ event_options.get(event.event_type, event.event_type) }}</span></td>
-                        <td>{{ event.username or "" }}</td>
-                        <td>{{ event.ip_address or "" }}</td>
-                        <td><pre>{{ event.details_json|json_pretty }}</pre></td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-
-            <div class="pagination">
-                <div>
-                    Exibindo {{ first_item }}-{{ last_item }} de {{ total_events }} eventos
+        <main class="content">
+            <header class="topbar">
+                <div class="page-title">
+                    <h1>Auditoria</h1>
+                    <p>Eventos operacionais, autenticação, exportações e administração</p>
                 </div>
-                <div class="pagination-actions">
-                    <a
-                        class="button{% if not has_previous_page %} disabled{% endif %}"
-                        href="/audit?page={{ page - 1 }}&per_page={{ per_page }}&event_type={{ event_type }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
-                    >
-                        Anterior
-                    </a>
-                    <span>Pagina {{ page }} de {{ total_pages }}</span>
-                    <a
-                        class="button{% if not has_next_page %} disabled{% endif %}"
-                        href="/audit?page={{ page + 1 }}&per_page={{ per_page }}&event_type={{ event_type }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
-                    >
-                        Proxima
-                    </a>
+                <div class="topbar-user">Usuário: {{ session_user }}</div>
+            </header>
+
+            <section class="panel">
+                <form class="filter-bar audit-filter-bar" method="get" action="/audit">
+                    <select name="event_type">
+                        {% for value, label in event_options.items() %}
+                        <option value="{{ value }}"{% if event_type == value %} selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" name="username" placeholder="Usuário" value="{{ username or '' }}">
+                    <input type="date" name="date_from" value="{{ date_from or '' }}">
+                    <input type="date" name="date_to" value="{{ date_to or '' }}">
+                    <select name="per_page">
+                        {% for option in page_size_options %}
+                        <option value="{{ option }}"{% if per_page == option %} selected{% endif %}>{{ option }} por página</option>
+                        {% endfor %}
+                    </select>
+                    <button class="button primary" type="submit">Filtrar</button>
+                    <a class="button outline" href="/audit">Limpar</a>
+                </form>
+            </section>
+
+            {% if events %}
+            <section class="table-box">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Usuário</th>
+                            <th>IP</th>
+                            <th>Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in events %}
+                        {% set badge_class = "info" %}
+                        {% if event.event_type in ["login_failed", "checkin_rejected"] %}
+                            {% set badge_class = "danger" %}
+                        {% elif event.event_type in ["logout"] %}
+                            {% set badge_class = "warning" %}
+                        {% elif event.event_type.startswith("user_") or event.event_type == "password_changed" or event.event_type == "login_success" %}
+                            {% set badge_class = "success" %}
+                        {% endif %}
+                        <tr>
+                            <td>{{ event.created_at|datetime_br }}</td>
+                            <td><span class="badge {{ badge_class }}">{{ event_options.get(event.event_type, event.event_type) }}</span></td>
+                            <td>{{ event.username or "" }}</td>
+                            <td>{{ event.ip_address or "" }}</td>
+                            <td><pre class="json-block">{{ event.details_json|json_pretty }}</pre></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="pagination">
+                    <div>Exibindo {{ first_item }}-{{ last_item }} de {{ total_events }} eventos</div>
+                    <div class="pagination-actions">
+                        <a
+                            class="button outline{% if not has_previous_page %} disabled{% endif %}"
+                            href="/audit?page={{ page - 1 }}&per_page={{ per_page }}&event_type={{ event_type }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+                        >
+                            Anterior
+                        </a>
+                        <span>Página {{ page }} de {{ total_pages }}</span>
+                        <a
+                            class="button outline{% if not has_next_page %} disabled{% endif %}"
+                            href="/audit?page={{ page + 1 }}&per_page={{ per_page }}&event_type={{ event_type }}{% if username %}&username={{ username|urlencode }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+                        >
+                            Próxima
+                        </a>
+                    </div>
                 </div>
-            </div>
-        </div>
-        {% else %}
-        <div class="empty">
-            Nenhum evento de auditoria encontrado.
-        </div>
-        {% endif %}
+            </section>
+            {% else %}
+            <div class="empty">Nenhum evento de auditoria encontrado.</div>
+            {% endif %}
+        </main>
     </div>
 </body>
 </html>
