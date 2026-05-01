@@ -26,7 +26,7 @@ from ..services.asset import (
     normalize_status_filter,
     prepare_assets_for_display,
 )
-from .exports import EXPORT_MAX_ROWS
+from ..services.exporting import EXPORT_MAX_ROWS
 from ..templating import templates
 
 router = APIRouter()

@@ -20,9 +20,9 @@ def _positive_number(value, field_name):
     try:
         number = float(value)
     except (TypeError, ValueError) as error:
-        raise ValueError(f"Configuração inválida para {field_name}: {value}") from error
+        raise ValueError(f"Configuracao invalida para {field_name}: {value}") from error
     if number <= 0:
-        raise ValueError(f"Configuração inválida para {field_name}: deve ser maior que zero")
+        raise ValueError(f"Configuracao invalida para {field_name}: deve ser maior que zero")
     return number
 
 
@@ -30,9 +30,9 @@ def _non_negative_number(value, field_name):
     try:
         number = float(value)
     except (TypeError, ValueError) as error:
-        raise ValueError(f"Configuração inválida para {field_name}: {value}") from error
+        raise ValueError(f"Configuracao invalida para {field_name}: {value}") from error
     if number < 0:
-        raise ValueError(f"Configuração inválida para {field_name}: não pode ser negativo")
+        raise ValueError(f"Configuracao invalida para {field_name}: nao pode ser negativo")
     return number
 
 
@@ -45,27 +45,27 @@ def _optional_bool(value, field_name):
             return True
         if normalized in {"false", "0", "no", "nao", "não"}:
             return False
-    raise ValueError(f"ConfiguraÃ§Ã£o invÃ¡lida para {field_name}: use true ou false")
+    raise ValueError(f"Configuracao invalida para {field_name}: use true ou false")
 
 
 def validate_config(config):
     required_keys = ["api_url", "agent_token"]
     for key in required_keys:
         if key not in config or not config[key]:
-            raise ValueError(f"Configuração obrigatória ausente: {key}")
+            raise ValueError(f"Configuracao obrigatoria ausente: {key}")
 
     parsed_url = urlparse(config["api_url"])
     if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
-        raise ValueError("Configuração inválida para api_url: use uma URL http(s) completa")
+        raise ValueError("Configuracao invalida para api_url: use uma URL http(s) completa")
 
     config["timeout"] = _positive_number(config.get("timeout", 10), "timeout")
 
     try:
         max_retries = int(config.get("max_retries", 3))
     except (TypeError, ValueError) as error:
-        raise ValueError(f"Configuração inválida para max_retries: {config.get('max_retries')}") from error
+        raise ValueError(f"Configuracao invalida para max_retries: {config.get('max_retries')}") from error
     if max_retries < 1:
-        raise ValueError("Configuração inválida para max_retries: deve ser pelo menos 1")
+        raise ValueError("Configuracao invalida para max_retries: deve ser pelo menos 1")
     config["max_retries"] = max_retries
     config["retry_delay_seconds"] = _non_negative_number(
         config.get("retry_delay_seconds", 5),

@@ -4,7 +4,6 @@ import io
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from openpyxl import Workbook
-from openpyxl.styles import Font
 from sqlalchemy.orm import Session
 
 from ..dependencies import get_db, get_session_user
@@ -19,10 +18,9 @@ from ..services.asset import (
     prepare_assets_for_display,
 )
 from ..services.audit import record_audit_event
+from ..services.exporting import EXPORT_MAX_ROWS, UTF8_BOM, auto_fit_columns, style_header_row
 
 router = APIRouter()
-
-EXPORT_MAX_ROWS = 10_000
 
 
 @router.get("/export/csv")
@@ -55,7 +53,7 @@ def export_csv(
     prepare_assets_for_display(assets, now)
 
     output = io.StringIO()
-    output.write('﻿')  # UTF-8 BOM for Excel compatibility
+    output.write(UTF8_BOM)
     writer = csv.writer(output)
     writer.writerow([
         "Hostname", "Usuario", "Serial", "Fabricante", "Modelo", "CPU", "RAM",
@@ -127,8 +125,7 @@ def export_xlsx(
     ]
 
     sheet.append(headers)
-    for cell in sheet[1]:
-        cell.font = Font(bold=True)
+    style_header_row(sheet)
 
     for asset in assets:
         sheet.append([
@@ -141,14 +138,7 @@ def export_xlsx(
             format_datetime(asset.ultima_comunicacao),
         ])
 
-    for column_cells in sheet.columns:
-        max_length = 0
-        column_letter = column_cells[0].column_letter
-        for cell in column_cells:
-            value = str(cell.value) if cell.value is not None else ""
-            if len(value) > max_length:
-                max_length = len(value)
-        sheet.column_dimensions[column_letter].width = min(max_length + 2, 40)
+    auto_fit_columns(sheet, max_width=40)
 
     output = io.BytesIO()
     workbook.save(output)

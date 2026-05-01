@@ -125,24 +125,6 @@ def select_primary_network_interface(interfaces):
     return interfaces[0] if interfaces else None
 
 
-def get_ip():
-    primary_interface = select_primary_network_interface(get_network_interfaces())
-
-    if primary_interface and primary_interface["ip_addresses"]:
-        return primary_interface["ip_addresses"][0]
-
-    return None
-
-
-def get_mac_address():
-    primary_interface = select_primary_network_interface(get_network_interfaces())
-
-    if primary_interface:
-        return primary_interface["mac_address"]
-
-    return None
-
-
 def get_total_ram_gb():
     try:
         # Converte a memória total de bytes para gigabytes com duas casas decimais.
@@ -236,11 +218,12 @@ def get_system_info():
     total_ram_gb = get_total_ram_gb()
     network_interfaces = get_network_interfaces()
     primary_network_interface = select_primary_network_interface(network_interfaces)
+    logged_users = psutil.users()
 
     # Consolida todos os campos em um payload compatível com o schema da API.
     return {
         "hostname": socket.gethostname(),
-        "usuario": psutil.users()[0].name if psutil.users() else None,
+        "usuario": logged_users[0].name if logged_users else None,
         "cpu": cpu,
         "ram": f"{total_ram_gb} GB" if total_ram_gb else None,
         "sistema": f"{platform.system()} {platform.release()}",

@@ -5,7 +5,6 @@ import math
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from openpyxl import Workbook
-from openpyxl.styles import Font
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -19,11 +18,10 @@ from ..services.audit import (
     normalize_audit_event_type,
     parse_date_filter,
 )
+from ..services.exporting import EXPORT_MAX_ROWS, UTF8_BOM, auto_fit_columns, style_header_row
 from ..templating import templates
 
 router = APIRouter()
-
-EXPORT_MAX_ROWS = 10_000
 
 
 @router.get("/audit", response_class=HTMLResponse)
@@ -114,7 +112,7 @@ def export_audit_csv(
     )
 
     output = io.StringIO()
-    output.write('﻿')  # UTF-8 BOM for Excel compatibility
+    output.write(UTF8_BOM)
     writer = csv.writer(output)
     writer.writerow(["Data", "Tipo", "Usuario", "IP", "Detalhes"])
 
@@ -170,8 +168,7 @@ def export_audit_xlsx(
     sheet.title = "Auditoria"
     headers = ["Data", "Tipo", "Usuario", "IP", "Detalhes"]
     sheet.append(headers)
-    for cell in sheet[1]:
-        cell.font = Font(bold=True)
+    style_header_row(sheet)
 
     for event in events:
         sheet.append([
@@ -182,14 +179,7 @@ def export_audit_xlsx(
             event.details_json or "{}",
         ])
 
-    for column_cells in sheet.columns:
-        max_length = 0
-        column_letter = column_cells[0].column_letter
-        for cell in column_cells:
-            value = str(cell.value) if cell.value is not None else ""
-            if len(value) > max_length:
-                max_length = len(value)
-        sheet.column_dimensions[column_letter].width = min(max_length + 2, 60)
+    auto_fit_columns(sheet, max_width=60)
 
     output = io.BytesIO()
     workbook.save(output)

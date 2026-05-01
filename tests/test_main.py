@@ -1022,7 +1022,7 @@ def test_checkin_merge_resolves_integrity_conflict(db_session):
     # during concurrent inserts (race condition). We trigger it at the service
     # layer: one asset exists (only serial), we try to flush a new asset that
     # carries the same serial, causing a unique constraint violation.
-    from app.services.asset import add_asset_checkin, commit_asset_checkin
+    from app.services.asset import commit_asset_checkin
 
     existing = models.Asset(serial="SERIAL-MERGE-01", hostname="PC-EXISTING")
     db_session.add(existing)
