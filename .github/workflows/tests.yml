@@ -50,3 +50,37 @@ jobs:
       - name: Run tests
         run: |
           python -m pytest
+
+  agent-build:
+    name: Agent build
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-agent.txt
+
+      - name: Install agent dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-agent.txt
+
+      - name: Build agent executable
+        run: |
+          python -m PyInstaller rdp-agent.spec
+
+      - name: Smoke test agent executable
+        run: |
+          dist\rdp-agent.exe --help
+
+      - name: Upload agent executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: rdp-agent-windows
+          path: dist/rdp-agent.exe

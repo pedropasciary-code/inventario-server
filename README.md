@@ -287,7 +287,7 @@ pytest
 
 Os testes usam SQLite em memoria e sobrescrevem a dependencia de banco da API, sem alterar o PostgreSQL configurado no `.env`.
 
-O workflow `.github/workflows/tests.yml` executa automaticamente `py_compile`, `alembic heads` e `pytest` em pushes para `main` e em pull requests.
+O workflow `.github/workflows/tests.yml` executa automaticamente `py_compile`, `alembic heads` e `pytest` em pushes para `main` e em pull requests. Ele tambem roda um job Windows que empacota o agent com PyInstaller, executa um smoke test do `rdp-agent.exe` e publica o executavel como artefato do workflow.
 
 ## Endpoints Principais
 
