@@ -22,9 +22,8 @@ def checkin(
     asset: schemas.AssetCreate,
     db: Session = Depends(get_db),
 ):
-    enforce_checkin_rate_limit(request)
-
     asset_data = normalize_asset_payload(asset)
+    enforce_checkin_rate_limit(request, asset_data)
 
     if not any(asset_data.get(field) for field in ("serial", "mac_address", "hostname")):
         record_audit_event(

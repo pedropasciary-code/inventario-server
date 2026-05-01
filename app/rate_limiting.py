@@ -76,15 +76,27 @@ def clear_failed_logins(request: Request, username: str):
         login_attempts.pop(key, None)
 
 
-def enforce_checkin_rate_limit(request: Request):
+def checkin_rate_limit_key(request: Request, asset_data: dict | None = None) -> str:
     ip = get_client_ip(request) or "unknown"
+    asset_data = asset_data or {}
+    identity = (
+        asset_data.get("serial")
+        or asset_data.get("mac_address")
+        or asset_data.get("hostname")
+        or "unknown"
+    )
+    return f"{ip}:{str(identity).lower().strip()}"
+
+
+def enforce_checkin_rate_limit(request: Request, asset_data: dict | None = None):
+    key = checkin_rate_limit_key(request, asset_data)
     now = utc_now()
     with _lock:
-        attempts = _prune(checkin_attempts, ip, CHECKIN_RATE_LIMIT_WINDOW, now)
+        attempts = _prune(checkin_attempts, key, CHECKIN_RATE_LIMIT_WINDOW, now)
         if len(attempts) >= CHECKIN_RATE_LIMIT_MAX:
             raise HTTPException(
                 status_code=429,
                 detail="Limite de check-ins excedido. Tente novamente em alguns minutos.",
             )
         attempts.append(now)
-        checkin_attempts[ip] = attempts
+        checkin_attempts[key] = attempts

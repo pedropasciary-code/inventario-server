@@ -36,6 +36,18 @@ def _non_negative_number(value, field_name):
     return number
 
 
+def _optional_bool(value, field_name):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "sim"}:
+            return True
+        if normalized in {"false", "0", "no", "nao", "não"}:
+            return False
+    raise ValueError(f"ConfiguraÃ§Ã£o invÃ¡lida para {field_name}: use true ou false")
+
+
 def validate_config(config):
     required_keys = ["api_url", "agent_token"]
     for key in required_keys:
@@ -61,7 +73,10 @@ def validate_config(config):
     )
 
     if "health_check_before_send" in config:
-        config["health_check_before_send"] = bool(config["health_check_before_send"])
+        config["health_check_before_send"] = _optional_bool(
+            config["health_check_before_send"],
+            "health_check_before_send",
+        )
 
     return config
 

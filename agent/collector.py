@@ -233,6 +233,7 @@ def get_system_info():
 
     # Completa a coleta com métricas gerais vindas do psutil.
     disco_total_gb, disco_livre_gb = get_disk_info()
+    total_ram_gb = get_total_ram_gb()
     network_interfaces = get_network_interfaces()
     primary_network_interface = select_primary_network_interface(network_interfaces)
 
@@ -241,7 +242,7 @@ def get_system_info():
         "hostname": socket.gethostname(),
         "usuario": psutil.users()[0].name if psutil.users() else None,
         "cpu": cpu,
-        "ram": f"{get_total_ram_gb()} GB" if get_total_ram_gb() else None,
+        "ram": f"{total_ram_gb} GB" if total_ram_gb else None,
         "sistema": f"{platform.system()} {platform.release()}",
         "ip": primary_network_interface["ip_addresses"][0] if primary_network_interface and primary_network_interface["ip_addresses"] else None,
         "serial": serial,

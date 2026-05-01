@@ -36,6 +36,7 @@ def record_audit_event(
     username: str | None = None,
     details: dict | None = None,
 ):
+    audit_db = Session(bind=db.get_bind())
     try:
         event = models.AuditEvent(
             event_type=event_type,
@@ -43,11 +44,13 @@ def record_audit_event(
             ip_address=get_client_ip(request),
             details_json=json.dumps(details or {}, ensure_ascii=False, default=str),
         )
-        db.add(event)
-        db.commit()
+        audit_db.add(event)
+        audit_db.commit()
     except Exception:
-        db.rollback()
+        audit_db.rollback()
         logger.exception("Failed to record audit event: %s", event_type)
+    finally:
+        audit_db.close()
 
 
 def normalize_audit_event_type(event_type: str | None) -> str:

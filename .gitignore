@@ -27,9 +27,13 @@ dist/config.json
 
 # Logs e payloads gerados em runtime
 *.log
+*.log.*
 agent/failed_payloads/
+agent/dead_letter_payloads/
 agent-deploy/failed_payloads/
+agent-deploy/dead_letter_payloads/
 dist/failed_payloads/
+dist/dead_letter_payloads/
 
 # Artefatos de build e empacotamento
 build/

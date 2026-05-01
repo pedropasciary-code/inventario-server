@@ -17,6 +17,20 @@ def test_validate_config_applies_defaults_and_rejects_invalid_values():
     assert config["max_retries"] == 3
     assert config["retry_delay_seconds"] == 5
 
+    config = validate_config({
+        "api_url": "https://inventario.example.com/checkin",
+        "agent_token": "token",
+        "health_check_before_send": "false",
+    })
+    assert config["health_check_before_send"] is False
+
+    config = validate_config({
+        "api_url": "https://inventario.example.com/checkin",
+        "agent_token": "token",
+        "health_check_before_send": "true",
+    })
+    assert config["health_check_before_send"] is True
+
     with pytest.raises(ValueError, match="api_url"):
         validate_config({"api_url": "inventario.local/checkin", "agent_token": "token"})
 
@@ -25,6 +39,13 @@ def test_validate_config_applies_defaults_and_rejects_invalid_values():
 
     with pytest.raises(ValueError, match="retry_delay_seconds"):
         validate_config({"api_url": "https://inventario.example.com/checkin", "agent_token": "token", "retry_delay_seconds": -1})
+
+    with pytest.raises(ValueError, match="health_check_before_send"):
+        validate_config({
+            "api_url": "https://inventario.example.com/checkin",
+            "agent_token": "token",
+            "health_check_before_send": "maybe",
+        })
 
 
 class FakeResponse:

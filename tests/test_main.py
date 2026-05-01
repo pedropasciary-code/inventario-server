@@ -3,6 +3,7 @@ import io
 import json
 import re
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 from openpyxl import load_workbook
 
@@ -165,16 +166,29 @@ def test_checkin_rate_limit_blocks_flood(client):
     from app.rate_limiting import CHECKIN_RATE_LIMIT_MAX
 
     for i in range(CHECKIN_RATE_LIMIT_MAX):
-        payload["mac_address"] = f"AA-BB-CC-00-FF-{i:02d}"
         response = client.post("/checkin", json=payload, headers=AGENT_HEADERS)
         assert response.status_code == 200
 
     blocked = client.post(
         "/checkin",
-        json={**payload, "mac_address": "AA-BB-CC-00-FF-99"},
+        json=payload,
         headers=AGENT_HEADERS,
     )
     assert blocked.status_code == 429
+
+
+def test_checkin_rate_limit_allows_distinct_assets_behind_same_ip(client):
+    from app.rate_limiting import CHECKIN_RATE_LIMIT_MAX, checkin_attempts
+
+    for i in range(CHECKIN_RATE_LIMIT_MAX + 1):
+        response = client.post(
+            "/checkin",
+            json={"hostname": f"PC-NAT-{i}", "mac_address": f"AA-BB-CC-00-FE-{i:02d}"},
+            headers=AGENT_HEADERS,
+        )
+        assert response.status_code == 200
+
+    assert len(checkin_attempts) == CHECKIN_RATE_LIMIT_MAX + 1
 
 
 def test_login_requires_valid_csrf_token(client, admin_user):
@@ -936,21 +950,24 @@ def test_trusted_proxy_header_used_for_rate_limiting(client):
     # since ProxyHeadersMiddleware is not active in tests — raw client IP is used)
     from app.rate_limiting import CHECKIN_RATE_LIMIT_MAX, checkin_attempts
 
+    payload = {"hostname": "PC-PROXY", "mac_address": "AA-BB-CC-01-00-00"}
+    headers = {**AGENT_HEADERS, "X-Forwarded-For": "198.51.100.10"}
+
     for i in range(CHECKIN_RATE_LIMIT_MAX):
         r = client.post(
             "/checkin",
-            json={"hostname": f"PC-{i}", "mac_address": f"AA-BB-CC-01-{i:02d}-00"},
-            headers=AGENT_HEADERS,
+            json=payload,
+            headers=headers,
         )
         assert r.status_code == 200
 
     blocked = client.post(
         "/checkin",
-        json={"hostname": "PC-BLOCKED", "mac_address": "AA-BB-CC-01-FF-FF"},
-        headers=AGENT_HEADERS,
+        json=payload,
+        headers={**AGENT_HEADERS, "X-Forwarded-For": "203.0.113.99"},
     )
     assert blocked.status_code == 429
-    # Confirmed: rate limiting keyed by request.client.host works without proxy middleware
+    # Confirmed: untrusted X-Forwarded-For does not create separate client buckets.
     assert len(checkin_attempts) == 1
 
 
@@ -969,6 +986,27 @@ def test_record_audit_event_does_not_propagate_db_error(client, db_session, admi
         follow_redirects=False,
     )
     assert login_response.status_code == 303
+
+
+def test_record_audit_event_does_not_commit_caller_session(db_session):
+    from app.services.audit import record_audit_event
+
+    db_session.add(
+        models.Asset(
+            hostname="PC-PENDING",
+            serial="SERIAL-PENDING",
+            mac_address="AA-BB-CC-00-CC-01",
+            ultima_comunicacao=datetime.now(UTC),
+        )
+    )
+    request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+
+    record_audit_event(db_session, "login_success", request, username="admin")
+    db_session.rollback()
+
+    assert db_session.query(models.Asset).filter_by(hostname="PC-PENDING").count() == 0
+    event = db_session.query(models.AuditEvent).filter_by(event_type="login_success").one()
+    assert event.username == "admin"
 
 
 def test_checkin_merge_resolves_integrity_conflict(db_session):
