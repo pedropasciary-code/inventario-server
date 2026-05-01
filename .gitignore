@@ -47,6 +47,7 @@ agent-deploy/*.exe
 *.db
 *.sqlite
 *.sqlite3
+backups/
 
 # IDEs e sistema operacional
 .idea/

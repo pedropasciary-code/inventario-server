@@ -333,6 +333,36 @@ alembic history
 
 A migration inicial cria as tabelas `assets` e `users` quando elas ainda nao existem. Em bancos que ja tinham tabelas criadas pela versao antiga da aplicacao, ela apenas garante os indices esperados e registra a versao do Alembic.
 
+## Backup E Restore Do Banco
+
+Antes de deploys ou alteracoes grandes, gere um backup do PostgreSQL:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\backup_db.ps1
+```
+
+Por padrao o script le `DATABASE_URL` do ambiente ou do `.env`, usa `pg_dump` em formato custom e grava o arquivo em `backups/`.
+
+Para gerar SQL plano:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\backup_db.ps1 -Format plain
+```
+
+Para restaurar um backup custom em um banco ja criado:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\restore_db.ps1 -BackupFile .\backups\inventario_YYYYMMDD_HHMMSS.dump
+```
+
+Para limpar objetos existentes antes de restaurar um backup custom:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\restore_db.ps1 -BackupFile .\backups\inventario_YYYYMMDD_HHMMSS.dump -Clean
+```
+
+Os scripts exigem `pg_dump`, `pg_restore` e `psql` disponiveis no `PATH`. A pasta `backups/` e ignorada pelo Git.
+
 ## Logica Do Check-In
 
 O endpoint `/checkin` identifica ativos nesta ordem:
