@@ -160,6 +160,16 @@ URLs principais:
 - Login: `http://127.0.0.1:8000/login`
 - Dashboard: `http://127.0.0.1:8000/dashboard`
 
+Em Windows, tambem ha scripts operacionais para rodar a API em background:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_api.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\health_api.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\stop_api.ps1
+```
+
+O `start_api.ps1` roda `alembic upgrade head` antes de iniciar, grava o PID em `runtime/api.pid` e logs em `logs/api.out.log` e `logs/api.err.log`. Use `-SkipMigrations` se as migrations ja foram aplicadas por outro processo.
+
 As tabelas e indices sao gerenciados pelo Alembic. A aplicacao nao cria mais tabelas automaticamente no startup.
 
 ## Criando O Usuario Inicial
