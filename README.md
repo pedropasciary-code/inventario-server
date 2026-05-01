@@ -126,6 +126,8 @@ SESSION_COOKIE_SECURE=false
 APP_TIMEZONE=America/Sao_Paulo
 TRUSTED_PROXIES=
 CHECKIN_RETENTION_DAYS=90
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS=5
+CHECKIN_RATE_LIMIT_MAX=30
 ```
 
 - `DATABASE_URL`: conexao usada pela API para acessar o banco.
@@ -135,6 +137,8 @@ CHECKIN_RETENTION_DAYS=90
 - `APP_TIMEZONE`: fuso usado para formatar datas no painel web.
 - `TRUSTED_PROXIES`: lista separada por virgula com IPs de proxies autorizados a definir `X-Forwarded-For`. Deixe vazio sem proxy; use `*` apenas em rede totalmente controlada.
 - `CHECKIN_RETENTION_DAYS`: dias de retencao do historico de check-ins. Use `0` para desativar a limpeza automatica.
+- `LOGIN_RATE_LIMIT_MAX_ATTEMPTS`: maximo de falhas de login por IP/usuario em 15 minutos.
+- `CHECKIN_RATE_LIMIT_MAX`: maximo de check-ins por IP/identidade de ativo em 1 minuto.
 
 ## Executando A API
 

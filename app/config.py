@@ -27,9 +27,21 @@ def parse_non_negative_int_env(name: str, default: int) -> int:
     return value
 
 
+def parse_positive_int_env(name: str, default: int) -> int:
+    value = parse_non_negative_int_env(name, default)
+    if value < 1:
+        raise ValueError(f"{name} deve ser maior que zero: {value}")
+    return value
+
+
 # How many days of asset check-in history to retain. Older records are purged
 # automatically. Set to 0 to disable pruning.
 CHECKIN_RETENTION_DAYS = parse_non_negative_int_env("CHECKIN_RETENTION_DAYS", 90)
+
+# In-process rate limits. For multi-worker deployments, the effective limit is
+# multiplied by the number of workers unless a shared store is introduced.
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = parse_positive_int_env("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", 5)
+CHECKIN_RATE_LIMIT_MAX = parse_positive_int_env("CHECKIN_RATE_LIMIT_MAX", 30)
 
 if not AGENT_TOKEN:
     raise ValueError("AGENT_TOKEN não foi definido no arquivo .env")

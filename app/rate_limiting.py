@@ -3,15 +3,14 @@ from datetime import datetime, timedelta
 
 from fastapi import HTTPException, Request
 
+from .config import CHECKIN_RATE_LIMIT_MAX, LOGIN_RATE_LIMIT_MAX_ATTEMPTS
 from .formatting import get_client_ip
 from .utils import utc_now
 
 
-LOGIN_RATE_LIMIT_MAX_ATTEMPTS = 5
 LOGIN_RATE_LIMIT_WINDOW = timedelta(minutes=15)
 login_attempts: dict[str, list[datetime]] = {}
 
-CHECKIN_RATE_LIMIT_MAX = 30
 CHECKIN_RATE_LIMIT_WINDOW = timedelta(minutes=1)
 checkin_attempts: dict[str, list[datetime]] = {}
 

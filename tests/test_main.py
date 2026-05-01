@@ -926,7 +926,7 @@ def test_verify_password_accepts_legacy_pbkdf2_hash():
 
 
 def test_parse_non_negative_int_env_rejects_invalid_values(monkeypatch):
-    from app.config import parse_non_negative_int_env
+    from app.config import parse_non_negative_int_env, parse_positive_int_env
 
     monkeypatch.setenv("CHECKIN_RETENTION_DAYS", "abc")
     try:
@@ -943,6 +943,14 @@ def test_parse_non_negative_int_env_rejects_invalid_values(monkeypatch):
         assert "nao pode ser negativo" in str(error)
     else:
         raise AssertionError("negative retention value was accepted")
+
+    monkeypatch.setenv("CHECKIN_RATE_LIMIT_MAX", "0")
+    try:
+        parse_positive_int_env("CHECKIN_RATE_LIMIT_MAX", 30)
+    except ValueError as error:
+        assert "deve ser maior que zero" in str(error)
+    else:
+        raise AssertionError("zero rate limit was accepted")
 
 
 def test_trusted_proxy_header_used_for_rate_limiting(client):
