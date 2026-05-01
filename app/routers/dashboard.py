@@ -1,5 +1,3 @@
-import math
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import case, func
@@ -27,6 +25,7 @@ from ..services.asset import (
     prepare_assets_for_display,
 )
 from ..services.exporting import EXPORT_MAX_ROWS
+from ..services.pagination import build_pagination
 from ..templating import templates
 
 router = APIRouter()
@@ -93,20 +92,15 @@ def dashboard(
     }
 
     per_page = clamp_page_size(per_page)
-    total_pages = max(math.ceil(total_assets / per_page), 1)
-    page = min(max(page, 1), total_pages)
-    offset = (page - 1) * per_page
+    pagination = build_pagination(total_assets, page, per_page)
 
     assets = (
         apply_asset_sort(query, sort, direction)
-        .offset(offset)
-        .limit(per_page)
+        .offset(pagination.offset)
+        .limit(pagination.per_page)
         .all()
     )
     prepare_assets_for_display(assets, now)
-
-    first_item = offset + 1 if total_assets else 0
-    last_item = min(offset + len(assets), total_assets)
 
     return templates.TemplateResponse(
         request,
@@ -132,13 +126,13 @@ def dashboard(
             "communicating_assets": communicating_assets,
             "stale_assets": stale_assets,
             "inactive_assets": inactive_assets,
-            "page": page,
-            "per_page": per_page,
-            "total_pages": total_pages,
-            "first_item": first_item,
-            "last_item": last_item,
-            "has_previous_page": page > 1,
-            "has_next_page": page < total_pages,
+            "page": pagination.page,
+            "per_page": pagination.per_page,
+            "total_pages": pagination.total_pages,
+            "first_item": pagination.first_item,
+            "last_item": min(pagination.offset + len(assets), total_assets),
+            "has_previous_page": pagination.has_previous_page,
+            "has_next_page": pagination.has_next_page,
             "csrf_token": get_csrf_token(request),
         },
     )
