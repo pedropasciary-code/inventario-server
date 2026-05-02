@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..auth import hash_password, password_needs_rehash, verify_password
+from ..auth import hash_password, normalize_username, password_needs_rehash, verify_password
 from ..dependencies import get_csrf_token, get_db, get_session_user, validate_csrf_token
 from ..rate_limiting import clear_failed_logins, enforce_login_rate_limit, register_failed_login
 from ..services.audit import record_audit_event
@@ -32,6 +32,7 @@ def login(
     db: Session = Depends(get_db),
 ):
     validate_csrf_token(request, csrf_token)
+    username = normalize_username(username)
     enforce_login_rate_limit(request, username)
 
     user = db.query(models.User).filter(models.User.username == username).first()

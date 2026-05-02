@@ -7,6 +7,10 @@ from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHas
 _ph = PasswordHasher()
 
 
+def normalize_username(username: str | None) -> str:
+    return (username or "").strip().lower()
+
+
 def hash_password(password: str) -> str:
     return _ph.hash(password)
 

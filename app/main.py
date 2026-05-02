@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +13,9 @@ from .services.asset import purge_old_checkins
 from .routers import auth, checkin, dashboard, exports
 from .routers import audit as audit_router
 from .routers import users as users_router
+
+
+APP_DIR = Path(__file__).resolve().parent
 
 
 async def _background_maintenance_task():
@@ -49,7 +53,7 @@ app.add_middleware(
     same_site="lax",
     https_only=SESSION_COOKIE_SECURE,
 )
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=APP_DIR / "static"), name="static")
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)

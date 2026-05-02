@@ -255,6 +255,22 @@ def test_login_success_and_failure_record_audit_events(client, db_session, admin
     assert events[1].username == "admin"
 
 
+def test_login_normalizes_username_case(client, admin_user):
+    csrf_token = extract_csrf_token(client.get("/login"))
+
+    response = client.post(
+        "/login",
+        data={
+            "username": " Admin ",
+            "password": "strong-password",
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+
+
 def test_login_rehashes_legacy_pbkdf2_password(client, db_session):
     import hashlib
 
@@ -727,6 +743,39 @@ def test_users_page_rejects_duplicate_user(client, db_session, admin_user):
     assert response.status_code == 200
     assert "Usuario ja existe." in response.text
     assert db_session.query(models.User).count() == 1
+
+
+def test_users_page_normalizes_username_and_rejects_case_duplicate(client, db_session, admin_user):
+    assert login(client).status_code == 303
+    csrf_token = extract_csrf_token(client.get("/users"))
+
+    response = client.post(
+        "/users",
+        data={
+            "username": " Operator ",
+            "password": "operator-password",
+            "password_confirmation": "operator-password",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert response.status_code == 200
+    user = db_session.query(models.User).filter_by(username="operator").one()
+    assert user.username == "operator"
+
+    duplicate_response = client.post(
+        "/users",
+        data={
+            "username": "OPERATOR",
+            "password": "another-password",
+            "password_confirmation": "another-password",
+            "csrf_token": csrf_token,
+        },
+    )
+
+    assert duplicate_response.status_code == 200
+    assert "Usuario ja existe." in duplicate_response.text
+    assert db_session.query(models.User).filter_by(username="operator").count() == 1
 
 
 def test_users_page_prevents_disabling_current_user(client, db_session, admin_user):

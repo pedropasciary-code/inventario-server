@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..auth import hash_password
+from ..auth import hash_password, normalize_username
 from ..dependencies import get_admin_session_user, get_csrf_token, get_db, validate_csrf_token
 from ..services.audit import record_audit_event
 from ..templating import templates
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/users")
 
 
 def _normalize_username(username: str | None) -> str:
-    return (username or "").strip()
+    return normalize_username(username)
 
 
 def _validate_password_fields(password: str, password_confirmation: str):
