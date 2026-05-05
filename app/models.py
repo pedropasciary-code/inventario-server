@@ -71,3 +71,46 @@ class AuditEvent(Base):
     ip_address = Column(String, nullable=True)
     details_json = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+
+
+class Topology(Base):
+    # Canvas de topologia de rede identificado por nome.
+    __tablename__ = "topologies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class TopologyNode(Base):
+    # Dispositivo posicionado em um canvas de topologia.
+    __tablename__ = "topology_nodes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topology_id = Column(Integer, ForeignKey("topologies.id"), nullable=False, index=True)
+    asset_id = Column(Integer, ForeignKey("assets.id"), nullable=True)
+    parent_id = Column(Integer, ForeignKey("topology_nodes.id"), nullable=True)
+    node_type = Column(String, nullable=False)
+    label = Column(String, nullable=True)
+    x = Column(Float, nullable=False, default=0.0)
+    y = Column(Float, nullable=False, default=0.0)
+    width = Column(Float, nullable=True)
+    height = Column(Float, nullable=True)
+    color = Column(String, nullable=True)
+    props_json = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+
+class TopologyEdge(Base):
+    # Conexão de rede entre dois nós de uma topologia.
+    __tablename__ = "topology_edges"
+
+    id = Column(Integer, primary_key=True, index=True)
+    topology_id = Column(Integer, ForeignKey("topologies.id"), nullable=False, index=True)
+    source_id = Column(Integer, ForeignKey("topology_nodes.id"), nullable=False)
+    target_id = Column(Integer, ForeignKey("topology_nodes.id"), nullable=False)
+    connection_type = Column(String, nullable=True)
+    label = Column(String, nullable=True)
+    color = Column(String, nullable=True)

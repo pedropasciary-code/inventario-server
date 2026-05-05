@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDP SYSTEM - {{ topology.name }}</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img class="brand-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+                <div>
+                    <div class="brand-name">RDP SYSTEM</div>
+                    <div class="brand-subtitle">Inventário Corporativo</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav" aria-label="Menu principal">
+                <a class="nav-link" href="/dashboard"><span class="nav-icon">D</span>Dashboard</a>
+                <a class="nav-link active" href="/topology"><span class="nav-icon">T</span>Topologia</a>
+                {% if session_is_admin %}
+                <a class="nav-link" href="/users"><span class="nav-icon">U</span>Usuários</a>
+                <a class="nav-link" href="/audit"><span class="nav-icon">A</span>Auditoria</a>
+                {% endif %}
+                <details class="nav-group">
+                    <summary class="nav-link nav-parent">
+                        <span class="nav-parent-main"><span class="nav-icon">E</span>Exportações</span>
+                        <span class="nav-caret">⌄</span>
+                    </summary>
+                    <div class="nav-submenu">
+                        <a class="nav-sublink" href="/export/csv">CSV</a>
+                        <a class="nav-sublink" href="/export/xlsx">Excel</a>
+                    </div>
+                </details>
+                <form method="post" action="/logout">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="nav-button" type="submit"><span class="nav-icon">S</span>Sair</button>
+                </form>
+            </nav>
+        </aside>
+
+        <main class="content topo-page">
+            <header class="topbar">
+                <div class="page-title">
+                    <h1>{{ topology.name }}</h1>
+                    {% if topology.description %}
+                    <p>{{ topology.description }}</p>
+                    {% else %}
+                    <p>Diagrama de topologia de rede</p>
+                    {% endif %}
+                </div>
+                <div class="topbar-actions">
+                    {% if session_is_admin %}
+                    <button id="btn-edit-toggle" class="button outline small" onclick="toggleEditMode()">Editar</button>
+                    {% endif %}
+                    <a class="button outline small" href="/topology">← Voltar</a>
+                    <div class="topbar-user">Usuário: {{ session_user }}</div>
+                </div>
+            </header>
+
+            <div class="topo-workspace">
+                <div class="topo-canvas-wrapper">
+                    <div id="cy"></div>
+
+                    {% if session_is_admin %}
+                    <div id="topo-toolbar" class="topo-toolbar hidden">
+                        <div class="topo-toolbar-group">
+                            <div class="topo-dropdown">
+                                <button class="button small" onclick="toggleDeviceMenu()">+ Dispositivo</button>
+                                <div id="device-menu" class="topo-dropdown-menu hidden">
+                                    <button onclick="openAddNodeModal('desktop')">Desktop</button>
+                                    <button onclick="openAddNodeModal('server')">Servidor</button>
+                                    <button onclick="openAddNodeModal('router')">Roteador</button>
+                                    <button onclick="openAddNodeModal('switch')">Switch</button>
+                                    <button onclick="openAddNodeModal('printer')">Impressora</button>
+                                    <button onclick="openAddNodeModal('firewall')">Firewall</button>
+                                    <button onclick="openAddNodeModal('ap')">Access Point</button>
+                                </div>
+                            </div>
+                            <button class="button small" onclick="openAddNodeModal('region')">+ Região</button>
+                        </div>
+                        <div class="topo-toolbar-group">
+                            <button id="btn-connect" class="button small outline" onclick="toggleConnectMode()">Conectar</button>
+                            <button class="button small danger" onclick="deleteSelected()">Excluir</button>
+                        </div>
+                        <div class="topo-toolbar-group">
+                            <button id="btn-save" class="button small" onclick="saveTopology()">Salvar</button>
+                            <span id="save-status" class="topo-save-status"></span>
+                        </div>
+                    </div>
+
+                    <div id="connect-hint" class="topo-connect-hint hidden"></div>
+                    {% endif %}
+                </div>
+
+                <div id="topo-panel" class="topo-panel">
+                    <div class="topo-panel-header">
+                        <div>
+                            <div id="panel-type-badge" class="topo-type-badge"></div>
+                            <div id="panel-title" class="topo-panel-title">Selecione um elemento</div>
+                        </div>
+                        <button class="topo-panel-close" onclick="closePanel()">✕</button>
+                    </div>
+                    <div id="panel-body" class="topo-panel-body">
+                        <p class="muted">Clique em um dispositivo ou conexão para ver os detalhes.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    {% if session_is_admin %}
+    <!-- Add Node Modal -->
+    <div id="add-node-modal" class="topo-modal-overlay hidden">
+        <div class="topo-modal-box">
+            <h3 id="modal-title">Adicionar Dispositivo</h3>
+            <input type="hidden" id="new-node-type" value="desktop">
+            <div class="field">
+                <label for="new-node-label">Nome</label>
+                <input type="text" id="new-node-label" placeholder="Ex: Switch Principal" autocomplete="off">
+            </div>
+            <div class="field" id="region-color-field" style="display:none">
+                <label for="new-node-color">Cor da Região</label>
+                <div class="topo-color-row">
+                    <input type="color" id="new-node-color" value="#4c8c9c">
+                    <span id="new-node-color-preview" class="topo-color-preview" style="background:#4c8c9c"></span>
+                </div>
+            </div>
+            <div class="topo-modal-actions">
+                <button class="button" onclick="confirmAddNode()">Adicionar</button>
+                <button class="button outline" onclick="closeModal('add-node-modal')">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Edge Modal -->
+    <div id="add-edge-modal" class="topo-modal-overlay hidden">
+        <div class="topo-modal-box">
+            <h3>Nova Conexão</h3>
+            <div class="field">
+                <label for="edge-conn-type">Tipo de Cabo</label>
+                <select id="edge-conn-type">
+                    <option value="cat5">Cat5</option>
+                    <option value="cat5e">Cat5e</option>
+                    <option value="cat6" selected>Cat6</option>
+                    <option value="fiber">Fibra Óptica</option>
+                    <option value="wireless">Wireless</option>
+                    <option value="unknown">Desconhecido</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="edge-label">Rótulo (opcional)</label>
+                <input type="text" id="edge-label" placeholder="Ex: Uplink 1Gbps" autocomplete="off">
+            </div>
+            <div class="topo-modal-actions">
+                <button class="button" onclick="confirmAddEdge()">Conectar</button>
+                <button class="button outline" onclick="cancelConnectMode()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rename Modal -->
+    <div id="rename-modal" class="topo-modal-overlay hidden">
+        <div class="topo-modal-box">
+            <h3>Renomear Diagrama</h3>
+            <form method="post" action="/topology/{{ topology.id }}/rename">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="field">
+                    <label for="rename-name">Nome</label>
+                    <input type="text" id="rename-name" name="name" value="{{ topology.name }}" required>
+                </div>
+                <div class="field">
+                    <label for="rename-desc">Descrição</label>
+                    <input type="text" id="rename-desc" name="description" value="{{ topology.description or '' }}">
+                </div>
+                <div class="topo-modal-actions">
+                    <button class="button" type="submit">Salvar</button>
+                    <button class="button outline" type="button" onclick="closeModal('rename-modal')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js"></script>
+    <script>
+    const TOPOLOGY_ID = {{ topology.id }};
+    const IS_ADMIN = {{ 'true' if session_is_admin else 'false' }};
+    const CSRF_TOKEN = {{ csrf_token | tojson }};
+
+    const ASSETS = [
+        {% for asset in assets %}
+        { id: {{ asset.id }}, label: "{{ asset.hostname or asset.serial or asset.id }}" },
+        {% endfor %}
+    ];
+
+    const NODE_TYPES = {
+        desktop:  { label: 'Desktop',       color: '#2f505f', shape: 'roundrectangle' },
+        server:   { label: 'Servidor',      color: '#263f52', shape: 'barrel' },
+        router:   { label: 'Roteador',      color: '#6b4c2f', shape: 'diamond' },
+        switch:   { label: 'Switch',        color: '#2f5f3f', shape: 'hexagon' },
+        printer:  { label: 'Impressora',    color: '#4c2f5f', shape: 'rectangle' },
+        firewall: { label: 'Firewall',      color: '#5f2f2f', shape: 'octagon' },
+        ap:       { label: 'Access Point',  color: '#5f5f2f', shape: 'ellipse' },
+        region:   { label: 'Região',        color: '#4c8c9c', shape: 'roundrectangle' },
+    };
+
+    const CONN_TYPES = {
+        cat5:     { label: 'Cat5',          color: '#668086', lineStyle: 'dashed' },
+        cat5e:    { label: 'Cat5e',         color: '#8fabaf', lineStyle: 'solid' },
+        cat6:     { label: 'Cat6',          color: '#4c8c9c', lineStyle: 'solid' },
+        fiber:    { label: 'Fibra Óptica',  color: '#d4b66a', lineStyle: 'solid' },
+        wireless: { label: 'Wireless',      color: '#7ca494', lineStyle: 'dashed' },
+        unknown:  { label: 'Desconhecido',  color: '#668086', lineStyle: 'dashed' },
+    };
+
+    let cy = null;
+    let isEditMode = false;
+    let connectMode = false;
+    let connectSource = null;
+    let connectTarget = null;
+
+    const CY_STYLE = [
+        {
+            selector: 'node',
+            style: {
+                'label': 'data(label)',
+                'text-valign': 'bottom',
+                'text-halign': 'center',
+                'text-margin-y': 6,
+                'font-size': 12,
+                'font-family': 'Inter, Segoe UI, Arial, sans-serif',
+                'color': '#f3fbfb',
+                'text-outline-color': '#10242c',
+                'text-outline-width': 2,
+                'width': 64,
+                'height': 64,
+                'border-width': 2,
+                'border-color': 'rgba(173,199,199,0.35)',
+                'background-color': '#2f505f',
+            }
+        },
+        {
+            selector: 'node[type="desktop"]',
+            style: { 'background-color': '#2f505f', 'shape': 'roundrectangle' }
+        },
+        {
+            selector: 'node[type="server"]',
+            style: { 'background-color': '#263f52', 'shape': 'barrel' }
+        },
+        {
+            selector: 'node[type="router"]',
+            style: { 'background-color': '#6b4c2f', 'shape': 'diamond', 'width': 76, 'height': 76 }
+        },
+        {
+            selector: 'node[type="switch"]',
+            style: { 'background-color': '#2f5f3f', 'shape': 'hexagon' }
+        },
+        {
+            selector: 'node[type="printer"]',
+            style: { 'background-color': '#4c2f5f', 'shape': 'rectangle', 'width': 56, 'height': 68 }
+        },
+        {
+            selector: 'node[type="firewall"]',
+            style: { 'background-color': '#5f2f2f', 'shape': 'octagon' }
+        },
+        {
+            selector: 'node[type="ap"]',
+            style: { 'background-color': '#5f5f2f', 'shape': 'ellipse' }
+        },
+        {
+            selector: 'node[type="region"]',
+            style: {
+                'background-color': 'data(color)',
+                'background-opacity': 0.12,
+                'shape': 'roundrectangle',
+                'border-style': 'dashed',
+                'border-color': 'data(color)',
+                'border-width': 2,
+                'border-opacity': 0.7,
+                'text-valign': 'top',
+                'text-margin-y': -10,
+                'font-size': 13,
+                'font-weight': 'bold',
+                'padding': '32px',
+                'width': 220,
+                'height': 160,
+            }
+        },
+        {
+            selector: 'node:selected',
+            style: { 'border-color': '#4c8c9c', 'border-width': 3 }
+        },
+        {
+            selector: 'node.connect-source',
+            style: { 'border-color': '#7ca494', 'border-width': 4 }
+        },
+        {
+            selector: 'edge',
+            style: {
+                'label': 'data(label)',
+                'font-size': 10,
+                'font-family': 'Inter, Segoe UI, Arial, sans-serif',
+                'color': '#c5d8d8',
+                'text-outline-color': '#10242c',
+                'text-outline-width': 2,
+                'width': 2,
+                'line-color': 'data(color)',
+                'curve-style': 'bezier',
+            }
+        },
+        {
+            selector: 'edge[connection_type="cat5"]',
+            style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 3] }
+        },
+        {
+            selector: 'edge[connection_type="wireless"]',
+            style: { 'line-style': 'dashed', 'line-dash-pattern': [2, 5] }
+        },
+        {
+            selector: 'edge[connection_type="unknown"]',
+            style: { 'line-style': 'dashed' }
+        },
+        {
+            selector: 'edge[connection_type="fiber"]',
+            style: { 'width': 3 }
+        },
+        {
+            selector: 'edge:selected',
+            style: { 'line-color': '#4c8c9c', 'width': 3 }
+        },
+    ];
+
+    async function init() {
+        const resp = await fetch(`/topology/${TOPOLOGY_ID}/data`);
+        const data = await resp.json();
+
+        cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: [...data.nodes, ...data.edges],
+            style: CY_STYLE,
+            layout: { name: 'preset' },
+            userZoomingEnabled: true,
+            userPanningEnabled: true,
+            boxSelectionEnabled: true,
+            autoungrabify: true,
+        });
+
+        cy.on('tap', 'node', onNodeTap);
+        cy.on('tap', 'edge', onEdgeTap);
+        cy.on('tap', function(e) { if (e.target === cy) onBackgroundTap(); });
+        cy.on('zoom pan', () => { document.getElementById('device-menu')?.classList.add('hidden'); });
+
+        if (data.nodes.length === 0) {
+            cy.fit();
+        }
+    }
+
+    function onNodeTap(evt) {
+        const node = evt.target;
+
+        if (connectMode) {
+            if (!connectSource) {
+                connectSource = node;
+                node.addClass('connect-source');
+                setConnectHint('Clique no nó de destino para criar a conexão...');
+            } else if (connectSource.id() !== node.id()) {
+                connectTarget = node;
+                closeModal('add-edge-modal');
+                document.getElementById('edge-label').value = '';
+                openModal('add-edge-modal');
+            }
+            return;
+        }
+
+        cy.$(':selected').unselect();
+        node.select();
+        renderNodePanel(node);
+    }
+
+    function onEdgeTap(evt) {
+        if (connectMode) return;
+        const edge = evt.target;
+        cy.$(':selected').unselect();
+        edge.select();
+        renderEdgePanel(edge);
+    }
+
+    function onBackgroundTap() {
+        if (connectMode) return;
+        cy.$(':selected').unselect();
+    }
+
+    /* ── Panel ── */
+
+    function closePanel() {
+        document.getElementById('topo-panel').classList.remove('open');
+    }
+
+    function renderNodePanel(node) {
+        const d = node.data();
+        const props = d.props || {};
+        const typeMeta = NODE_TYPES[d.type] || { label: d.type };
+
+        document.getElementById('panel-type-badge').textContent = typeMeta.label;
+        document.getElementById('panel-type-badge').style.background = typeMeta.color || '#2f505f';
+        document.getElementById('panel-title').textContent = d.label || '(sem nome)';
+
+        const body = document.getElementById('panel-body');
+
+        if (isEditMode) {
+            body.innerHTML = buildNodeEditForm(node);
+            const colorInput = body.querySelector('#ep-color');
+            if (colorInput) {
+                colorInput.addEventListener('input', () => {
+                    body.querySelector('#ep-color-preview').style.background = colorInput.value;
+                });
+            }
+            const assetSel = body.querySelector('#ep-asset');
+            if (assetSel) populateAssetSelect(assetSel, d.asset_id);
+        } else {
+            body.innerHTML = buildNodeViewHTML(d, props);
+        }
+
+        document.getElementById('topo-panel').classList.add('open');
+    }
+
+    function buildNodeViewHTML(d, props) {
+        let html = '';
+        if (d.asset_id) {
+            html += `<a class="hostname-link" href="/assets/${d.asset_id}" target="_blank">Ver ativo vinculado →</a><hr class="topo-divider">`;
+        }
+        const fields = [
+            ['IP', props.ip],
+            ['Serial', props.serial],
+            ['Marca', props.brand],
+            ['Modelo', props.model],
+            ['Login', props.login],
+            IS_ADMIN ? ['Senha', props.password ? `<span class="topo-password" data-val="${escHtml(props.password)}">••••••••<button class="topo-show-pwd" onclick="togglePwd(this)">mostrar</button></span>` : '—'] : null,
+            ['Notas', props.notes],
+        ].filter(Boolean);
+
+        for (const [label, value] of fields) {
+            if (!value) continue;
+            html += `<div class="topo-prop"><div class="topo-prop-label">${label}</div><div class="topo-prop-value">${value}</div></div>`;
+        }
+        if (!html) html = '<p class="muted">Nenhuma propriedade registrada.</p>';
+        return html;
+    }
+
+    function buildNodeEditForm(node) {
+        const d = node.data();
+        const props = d.props || {};
+        const isRegion = d.type === 'region';
+        return `
+        <div class="topo-edit-form">
+            <div class="field"><label>Nome</label><input id="ep-label" value="${escHtml(d.label || '')}"></div>
+            ${isRegion ? `
+            <div class="field"><label>Cor da Região</label>
+                <div class="topo-color-row">
+                    <input type="color" id="ep-color" value="${d.color || '#4c8c9c'}">
+                    <span id="ep-color-preview" class="topo-color-preview" style="background:${d.color || '#4c8c9c'}"></span>
+                </div>
+            </div>` : ''}
+            ${!isRegion ? `
+            <hr class="topo-divider">
+            <div class="field"><label>IP</label><input id="ep-ip" value="${escHtml(props.ip || '')}"></div>
+            <div class="field"><label>Serial</label><input id="ep-serial" value="${escHtml(props.serial || '')}"></div>
+            <div class="field"><label>Marca</label><input id="ep-brand" value="${escHtml(props.brand || '')}"></div>
+            <div class="field"><label>Modelo</label><input id="ep-model" value="${escHtml(props.model || '')}"></div>
+            <div class="field"><label>Login</label><input id="ep-login" value="${escHtml(props.login || '')}"></div>
+            <div class="field"><label>Senha</label><input id="ep-password" type="password" value="${escHtml(props.password || '')}" autocomplete="new-password"></div>
+            <div class="field"><label>Notas</label><textarea id="ep-notes" rows="3">${escHtml(props.notes || '')}</textarea></div>
+            <hr class="topo-divider">
+            <div class="field"><label>Ativo vinculado</label><select id="ep-asset"><option value="">— nenhum —</option></select></div>
+            ` : ''}
+            <div class="topo-edit-actions">
+                <button class="button small" onclick="applyNodeEdit('${node.id()}')">Aplicar</button>
+                <button class="button small danger" onclick="deleteNode('${node.id()}')">Excluir</button>
+            </div>
+        </div>`;
+    }
+
+    function renderEdgePanel(edge) {
+        const d = edge.data();
+        const connMeta = CONN_TYPES[d.connection_type] || CONN_TYPES.unknown;
+
+        document.getElementById('panel-type-badge').textContent = 'Conexão';
+        document.getElementById('panel-type-badge').style.background = connMeta.color;
+        document.getElementById('panel-title').textContent = connMeta.label;
+
+        const body = document.getElementById('panel-body');
+        if (isEditMode) {
+            body.innerHTML = buildEdgeEditForm(edge);
+        } else {
+            body.innerHTML = `<div class="topo-prop"><div class="topo-prop-label">Tipo</div><div class="topo-prop-value">${connMeta.label}</div></div>
+            ${d.label ? `<div class="topo-prop"><div class="topo-prop-label">Rótulo</div><div class="topo-prop-value">${escHtml(d.label)}</div></div>` : ''}`;
+        }
+        document.getElementById('topo-panel').classList.add('open');
+    }
+
+    function buildEdgeEditForm(edge) {
+        const d = edge.data();
+        const options = Object.entries(CONN_TYPES).map(([v, m]) =>
+            `<option value="${v}"${v === d.connection_type ? ' selected' : ''}>${m.label}</option>`
+        ).join('');
+        return `
+        <div class="topo-edit-form">
+            <div class="field"><label>Tipo de Conexão</label><select id="ee-type">${options}</select></div>
+            <div class="field"><label>Rótulo</label><input id="ee-label" value="${escHtml(d.label || '')}"></div>
+            <div class="topo-edit-actions">
+                <button class="button small" onclick="applyEdgeEdit('${edge.id()}')">Aplicar</button>
+                <button class="button small danger" onclick="deleteEdge('${edge.id()}')">Excluir</button>
+            </div>
+        </div>`;
+    }
+
+    /* ── Edit Mode ── */
+
+    function toggleEditMode() {
+        isEditMode = !isEditMode;
+        const btn = document.getElementById('btn-edit-toggle');
+        const toolbar = document.getElementById('topo-toolbar');
+
+        if (isEditMode) {
+            btn.textContent = 'Sair da Edição';
+            btn.classList.remove('outline');
+            toolbar.classList.remove('hidden');
+            cy.autoungrabify(false);
+        } else {
+            btn.textContent = 'Editar';
+            btn.classList.add('outline');
+            toolbar.classList.add('hidden');
+            cancelConnectMode();
+            cy.autoungrabify(true);
+            closePanel();
+        }
+        setSaveStatus('');
+    }
+
+    /* ── Add Node ── */
+
+    function toggleDeviceMenu() {
+        document.getElementById('device-menu').classList.toggle('hidden');
+    }
+
+    function openAddNodeModal(type) {
+        document.getElementById('device-menu').classList.add('hidden');
+        document.getElementById('new-node-type').value = type;
+        document.getElementById('new-node-label').value = '';
+        document.getElementById('modal-title').textContent =
+            type === 'region' ? 'Adicionar Região' : 'Adicionar Dispositivo';
+        document.getElementById('region-color-field').style.display =
+            type === 'region' ? '' : 'none';
+        openModal('add-node-modal');
+        setTimeout(() => document.getElementById('new-node-label').focus(), 50);
+    }
+
+    function confirmAddNode() {
+        const type = document.getElementById('new-node-type').value;
+        const label = document.getElementById('new-node-label').value.trim();
+        const color = document.getElementById('new-node-color')?.value || (NODE_TYPES[type]?.color || '#2f505f');
+
+        const ext = cy.extent();
+        const x = (ext.x1 + ext.x2) / 2;
+        const y = (ext.y1 + ext.y2) / 2;
+        const id = `new-${Date.now()}`;
+
+        const nodeData = { id, label, type, color, props: {}, db_id: null, asset_id: null };
+        const added = cy.add({ group: 'nodes', data: nodeData, position: { x, y } });
+
+        if (type === 'region') {
+            added.style({ width: 220, height: 160 });
+        }
+
+        closeModal('add-node-modal');
+        setSaveStatus('Alterações não salvas');
+    }
+
+    /* ── Connect Mode ── */
+
+    function toggleConnectMode() {
+        if (connectMode) {
+            cancelConnectMode();
+        } else {
+            connectMode = true;
+            connectSource = null;
+            connectTarget = null;
+            document.getElementById('btn-connect').classList.add('active-connect');
+            setConnectHint('Clique no nó de origem...');
+        }
+    }
+
+    function cancelConnectMode() {
+        connectMode = false;
+        connectSource = null;
+        connectTarget = null;
+        cy.$('.connect-source').removeClass('connect-source');
+        setConnectHint('');
+        document.getElementById('btn-connect')?.classList.remove('active-connect');
+        closeModal('add-edge-modal');
+    }
+
+    function setConnectHint(text) {
+        const el = document.getElementById('connect-hint');
+        if (!el) return;
+        if (text) {
+            el.textContent = text;
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    }
+
+    function confirmAddEdge() {
+        if (!connectSource || !connectTarget) return;
+        const connType = document.getElementById('edge-conn-type').value;
+        const label = document.getElementById('edge-label').value.trim();
+        const meta = CONN_TYPES[connType] || CONN_TYPES.unknown;
+
+        cy.add({
+            group: 'edges',
+            data: {
+                id: `new-e-${Date.now()}`,
+                source: connectSource.id(),
+                target: connectTarget.id(),
+                connection_type: connType,
+                label,
+                color: meta.color,
+                db_id: null,
+            }
+        });
+
+        cancelConnectMode();
+        setSaveStatus('Alterações não salvas');
+    }
+
+    /* ── Edit / Delete ── */
+
+    function applyNodeEdit(nodeId) {
+        const node = cy.getElementById(nodeId);
+        const isRegion = node.data('type') === 'region';
+        const label = document.getElementById('ep-label')?.value.trim() || '';
+        const color = document.getElementById('ep-color')?.value || node.data('color');
+
+        node.data('label', label);
+        if (isRegion) node.data('color', color);
+
+        if (!isRegion) {
+            const assetSel = document.getElementById('ep-asset');
+            const assetId = assetSel ? (parseInt(assetSel.value) || null) : node.data('asset_id');
+            node.data('asset_id', assetId);
+            node.data('props', {
+                ip: document.getElementById('ep-ip')?.value.trim() || '',
+                serial: document.getElementById('ep-serial')?.value.trim() || '',
+                brand: document.getElementById('ep-brand')?.value.trim() || '',
+                model: document.getElementById('ep-model')?.value.trim() || '',
+                login: document.getElementById('ep-login')?.value.trim() || '',
+                password: document.getElementById('ep-password')?.value || '',
+                notes: document.getElementById('ep-notes')?.value.trim() || '',
+            });
+        }
+
+        renderNodePanel(node);
+        setSaveStatus('Alterações não salvas');
+    }
+
+    function applyEdgeEdit(edgeId) {
+        const edge = cy.getElementById(edgeId);
+        const connType = document.getElementById('ee-type').value;
+        const label = document.getElementById('ee-label').value.trim();
+        const meta = CONN_TYPES[connType] || CONN_TYPES.unknown;
+
+        edge.data('connection_type', connType);
+        edge.data('label', label);
+        edge.data('color', meta.color);
+
+        renderEdgePanel(edge);
+        setSaveStatus('Alterações não salvas');
+    }
+
+    function deleteNode(nodeId) {
+        if (!confirm('Excluir este dispositivo?')) return;
+        cy.getElementById(nodeId).remove();
+        closePanel();
+        setSaveStatus('Alterações não salvas');
+    }
+
+    function deleteEdge(edgeId) {
+        if (!confirm('Excluir esta conexão?')) return;
+        cy.getElementById(edgeId).remove();
+        closePanel();
+        setSaveStatus('Alterações não salvas');
+    }
+
+    function deleteSelected() {
+        const sel = cy.$(':selected');
+        if (sel.length === 0) { alert('Selecione um elemento para excluir.'); return; }
+        if (!confirm(`Excluir ${sel.length} elemento(s) selecionado(s)?`)) return;
+        sel.remove();
+        closePanel();
+        setSaveStatus('Alterações não salvas');
+    }
+
+    /* ── Save ── */
+
+    async function saveTopology() {
+        setSaveStatus('Salvando…');
+
+        const nodes = cy.nodes().map(node => ({
+            db_id: node.data('db_id') || null,
+            client_id: node.id(),
+            node_type: node.data('type') || 'desktop',
+            label: node.data('label') || '',
+            x: node.position('x'),
+            y: node.position('y'),
+            width: node.data('type') === 'region' ? node.width() : null,
+            height: node.data('type') === 'region' ? node.height() : null,
+            color: node.data('color') || '',
+            parent_client_id: node.data('parent') || null,
+            asset_id: node.data('asset_id') || null,
+            props: node.data('props') || {},
+        }));
+
+        const edges = cy.edges().map(edge => ({
+            db_id: edge.data('db_id') || null,
+            source_client_id: edge.source().id(),
+            target_client_id: edge.target().id(),
+            connection_type: edge.data('connection_type') || 'unknown',
+            label: edge.data('label') || '',
+            color: edge.data('color') || '',
+        }));
+
+        try {
+            const resp = await fetch(`/topology/${TOPOLOGY_ID}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
+                body: JSON.stringify({ nodes, edges }),
+            });
+            if (resp.ok) {
+                setSaveStatus('Salvo!');
+                await reloadData();
+                setTimeout(() => setSaveStatus(''), 3000);
+            } else {
+                setSaveStatus('Erro ao salvar.');
+            }
+        } catch {
+            setSaveStatus('Erro de rede.');
+        }
+    }
+
+    async function reloadData() {
+        const resp = await fetch(`/topology/${TOPOLOGY_ID}/data`);
+        const data = await resp.json();
+        cy.elements().remove();
+        cy.add([...data.nodes, ...data.edges]);
+    }
+
+    /* ── Helpers ── */
+
+    function setSaveStatus(text) {
+        const el = document.getElementById('save-status');
+        if (el) el.textContent = text;
+    }
+
+    function populateAssetSelect(select, currentAssetId) {
+        select.innerHTML = '<option value="">— nenhum —</option>';
+        for (const a of ASSETS) {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.label;
+            if (a.id === currentAssetId) opt.selected = true;
+            select.appendChild(opt);
+        }
+    }
+
+    function openModal(id) {
+        document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.add('hidden');
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function togglePwd(btn) {
+        const span = btn.closest('.topo-password');
+        const val = span.dataset.val;
+        if (btn.textContent === 'mostrar') {
+            span.firstChild.textContent = val;
+            btn.textContent = 'ocultar';
+        } else {
+            span.firstChild.textContent = '••••••••';
+            btn.textContent = 'mostrar';
+        }
+    }
+
+    document.addEventListener('keydown', e => {
+        if ((e.key === 'Delete' || e.key === 'Backspace') && isEditMode) {
+            const active = document.activeElement;
+            if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+            deleteSelected();
+        }
+        if (e.key === 'Escape') {
+            if (connectMode) cancelConnectMode();
+            closePanel();
+        }
+    });
+
+    document.addEventListener('click', e => {
+        const menu = document.getElementById('device-menu');
+        if (menu && !menu.classList.contains('hidden') && !e.target.closest('.topo-dropdown')) {
+            menu.classList.add('hidden');
+        }
+        const overlays = document.querySelectorAll('.topo-modal-overlay:not(.hidden)');
+        for (const ov of overlays) {
+            if (e.target === ov) closeModal(ov.id);
+        }
+    });
+
+    document.getElementById('new-node-color')?.addEventListener('input', function() {
+        document.getElementById('new-node-color-preview').style.background = this.value;
+    });
+
+    init();
+    </script>
+</body>
+</html>

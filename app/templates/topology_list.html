@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDP SYSTEM - Topologia de Rede</title>
+    <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <img class="brand-logo" src="/static/logo/logo-rdp.png" alt="RDP SYSTEM">
+                <div>
+                    <div class="brand-name">RDP SYSTEM</div>
+                    <div class="brand-subtitle">Inventário Corporativo</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav" aria-label="Menu principal">
+                <a class="nav-link" href="/dashboard"><span class="nav-icon">D</span>Dashboard</a>
+                <a class="nav-link active" href="/topology"><span class="nav-icon">T</span>Topologia</a>
+                {% if session_is_admin %}
+                <a class="nav-link" href="/users"><span class="nav-icon">U</span>Usuários</a>
+                <a class="nav-link" href="/audit"><span class="nav-icon">A</span>Auditoria</a>
+                {% endif %}
+                <details class="nav-group">
+                    <summary class="nav-link nav-parent">
+                        <span class="nav-parent-main"><span class="nav-icon">E</span>Exportações</span>
+                        <span class="nav-caret">⌄</span>
+                    </summary>
+                    <div class="nav-submenu">
+                        <a class="nav-sublink" href="/export/csv">CSV</a>
+                        <a class="nav-sublink" href="/export/xlsx">Excel</a>
+                    </div>
+                </details>
+                <form method="post" action="/logout">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button class="nav-button" type="submit"><span class="nav-icon">S</span>Sair</button>
+                </form>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <header class="topbar">
+                <div class="page-title">
+                    <h1>Topologia de Rede</h1>
+                    <p>Diagramas de topologia e conexões</p>
+                </div>
+                <div class="topbar-user">Usuário: {{ session_user }}</div>
+            </header>
+
+            {% if error %}
+            <div class="error">{{ error }}</div>
+            {% endif %}
+
+            {% if session_is_admin %}
+            <section class="panel">
+                <form class="topo-create-form" method="post" action="/topology">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="Nome do diagrama (ex: Andar 1, Sala de Servidores)"
+                        required
+                    >
+                    <input
+                        type="text"
+                        name="description"
+                        placeholder="Descrição (opcional)"
+                    >
+                    <button class="button" type="submit">Criar Diagrama</button>
+                </form>
+            </section>
+            {% endif %}
+
+            {% if topologies %}
+            <section class="topo-grid">
+                {% for topo in topologies %}
+                <article class="topo-card">
+                    <a class="topo-card-body" href="/topology/{{ topo.id }}">
+                        <div class="topo-card-icon">T</div>
+                        <div class="topo-card-info">
+                            <div class="topo-card-name">{{ topo.name }}</div>
+                            {% if topo.description %}
+                            <div class="topo-card-desc">{{ topo.description }}</div>
+                            {% endif %}
+                            <div class="topo-card-meta">Atualizado em {{ topo.updated_at|datetime_br }}</div>
+                        </div>
+                    </a>
+                    {% if session_is_admin %}
+                    <div class="topo-card-actions">
+                        <form method="post" action="/topology/{{ topo.id }}/delete"
+                              onsubmit="return confirm('Excluir o diagrama \'{{ topo.name }}\'? Esta ação não pode ser desfeita.')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button class="button danger small" type="submit">Excluir</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </section>
+            {% else %}
+            <div class="empty">
+                Nenhum diagrama criado ainda.
+                {% if session_is_admin %}Use o formulário acima para criar o primeiro.{% endif %}
+            </div>
+            {% endif %}
+        </main>
+    </div>
+</body>
+</html>

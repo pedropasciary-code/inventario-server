@@ -823,3 +823,503 @@ pre {
         flex-direction: column;
     }
 }
+
+/* ── Topology ── */
+
+.topo-page {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    padding: 0;
+}
+
+.topo-page .topbar {
+    padding: 16px 26px;
+    margin-bottom: 0;
+    border-bottom: 1px solid var(--rdp-line);
+    flex-shrink: 0;
+}
+
+.topo-page .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.topo-workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+}
+
+.topo-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--rdp-bg-2);
+}
+
+#cy {
+    width: 100%;
+    height: 100%;
+}
+
+.topo-toolbar {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: rgba(16, 36, 44, 0.92);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--rdp-line);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+}
+
+.topo-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.topo-toolbar-group + .topo-toolbar-group {
+    padding-left: 10px;
+    border-left: 1px solid var(--rdp-line);
+}
+
+.topo-save-status {
+    font-size: 12px;
+    color: var(--text-3);
+}
+
+.topo-connect-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(76, 140, 156, 0.92);
+    color: #fff;
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.topo-dropdown {
+    position: relative;
+}
+
+.topo-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 160px;
+    background: var(--rdp-panel);
+    border: 1px solid var(--rdp-line);
+    border-radius: var(--radius);
+    padding: 6px;
+    display: grid;
+    gap: 2px;
+    z-index: 20;
+    box-shadow: var(--shadow);
+}
+
+.topo-dropdown-menu button {
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 140ms ease;
+}
+
+.topo-dropdown-menu button:hover {
+    background: rgba(173, 199, 199, 0.10);
+    color: var(--text);
+}
+
+.active-connect {
+    background: rgba(76, 140, 156, 0.25) !important;
+    border-color: var(--rdp-teal) !important;
+    color: var(--text) !important;
+}
+
+/* ── Panel ── */
+
+.topo-panel {
+    width: 320px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--rdp-line);
+    background: var(--rdp-panel);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    overflow: hidden;
+}
+
+.topo-panel.open {
+    transform: translateX(0);
+}
+
+.topo-panel-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--rdp-line);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.topo-type-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.85);
+    background: var(--rdp-primary);
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+}
+
+.topo-panel-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    word-break: break-word;
+}
+
+.topo-panel-close {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 140ms ease;
+}
+
+.topo-panel-close:hover {
+    color: var(--text);
+}
+
+.topo-panel-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.topo-prop {
+    margin-bottom: 14px;
+}
+
+.topo-prop-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-3);
+    margin-bottom: 3px;
+}
+
+.topo-prop-value {
+    font-size: 14px;
+    color: var(--text);
+    word-break: break-all;
+}
+
+.topo-divider {
+    border: none;
+    border-top: 1px solid var(--rdp-line);
+    margin: 14px 0;
+}
+
+.topo-password {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topo-show-pwd {
+    background: none;
+    border: none;
+    color: var(--rdp-teal);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0;
+    text-decoration: underline;
+}
+
+/* ── Edit Form (inside panel) ── */
+
+.topo-edit-form {
+    display: grid;
+    gap: 2px;
+}
+
+.topo-edit-form .field {
+    display: grid;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.topo-edit-form label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 700;
+}
+
+.topo-edit-form input,
+.topo-edit-form select,
+.topo-edit-form textarea {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--rdp-panel-2);
+    border: 1px solid var(--rdp-line);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    transition: 140ms ease;
+}
+
+.topo-edit-form input:focus,
+.topo-edit-form select:focus,
+.topo-edit-form textarea:focus {
+    outline: none;
+    border-color: var(--rdp-teal);
+}
+
+.topo-edit-form textarea {
+    resize: vertical;
+    min-height: 72px;
+}
+
+.topo-edit-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+/* ── Color Picker Row ── */
+
+.topo-color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topo-color-row input[type="color"] {
+    width: 44px;
+    height: 36px;
+    padding: 2px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.topo-color-preview {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid var(--rdp-line);
+    display: block;
+}
+
+/* ── Modals ── */
+
+.topo-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 20, 26, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+}
+
+.topo-modal-box {
+    background: var(--rdp-panel);
+    border: 1px solid var(--rdp-line);
+    border-radius: var(--radius);
+    padding: 28px;
+    min-width: 320px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: var(--shadow);
+}
+
+.topo-modal-box h3 {
+    margin: 0 0 20px;
+    font-size: 18px;
+}
+
+.topo-modal-box .field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.topo-modal-box label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 700;
+}
+
+.topo-modal-box input,
+.topo-modal-box select {
+    padding: 10px 12px;
+    background: var(--rdp-panel-2);
+    border: 1px solid var(--rdp-line);
+    border-radius: 10px;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    transition: 140ms ease;
+}
+
+.topo-modal-box input:focus,
+.topo-modal-box select:focus {
+    outline: none;
+    border-color: var(--rdp-teal);
+}
+
+.topo-modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* ── Topology List Page ── */
+
+.topo-create-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.topo-create-form input {
+    padding: 10px 12px;
+    background: var(--rdp-panel-2);
+    border: 1px solid var(--rdp-line);
+    border-radius: var(--radius);
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    transition: 140ms ease;
+}
+
+.topo-create-form input:focus {
+    outline: none;
+    border-color: var(--rdp-teal);
+}
+
+.topo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.topo-card {
+    background: var(--rdp-panel);
+    border: 1px solid var(--rdp-line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 160ms ease;
+}
+
+.topo-card:hover {
+    border-color: var(--rdp-line-strong);
+}
+
+.topo-card-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.topo-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(76, 140, 156, 0.18);
+    color: var(--rdp-soft);
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.topo-card-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.topo-card-desc {
+    font-size: 13px;
+    color: var(--text-3);
+    margin-top: 3px;
+}
+
+.topo-card-meta {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 5px;
+}
+
+.topo-card-actions {
+    padding: 0 18px 14px;
+}
+
+.button.small {
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: 8px;
+}
+
+@media (max-width: 860px) {
+    .topo-create-form {
+        grid-template-columns: 1fr;
+    }
+    .topo-panel {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 20;
+        box-shadow: var(--shadow);
+    }
+}

@@ -12,6 +12,7 @@ from .rate_limiting import cleanup_stale_entries
 from .services.asset import purge_old_checkins
 from .routers import auth, checkin, dashboard, exports
 from .routers import audit as audit_router
+from .routers import topology as topology_router
 from .routers import users as users_router
 
 
@@ -61,6 +62,7 @@ app.include_router(users_router.router)
 app.include_router(audit_router.router)
 app.include_router(exports.router)
 app.include_router(checkin.router)
+app.include_router(topology_router.router)
 
 
 @app.get("/")
